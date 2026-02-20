@@ -1,0 +1,12 @@
+[images]
+  remote_images = []
+
+[[redirects]]
+  from = "/assets/media/*"
+  to = "/.netlify/images?url=/assets/media/:splat&q=80"
+  status = 200
+
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200

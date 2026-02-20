@@ -1,0 +1,22 @@
+# Build artifacts
+node_modules/
+.shadow-cljs/
+.cpcache/
+target/
+dist/
+resources/public/js/
+resources/public/assets/
+*.class
+
+# Editor/IDE
+.lsp/
+.clj-kondo/
+.nrepl-port
+.vscode/
+
+# Claude local settings (project settings.json is committed)
+.claude/settings.local.json
+
+# OS
+.DS_Store
+Thumbs.db

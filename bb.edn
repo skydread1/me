@@ -1,0 +1,102 @@
+{:paths ["src"]
+ :tasks
+ {:requires [[clojure.edn :as edn]
+             [clojure.string :as str]]
+
+  dev
+  {:doc "Start nREPL for development. Connect editor, then:
+         (shadow.cljs.devtools.server/start!)
+         (shadow.cljs.devtools.api/watch :app)
+         (shadow.cljs.devtools.api/repl :app)"
+   :task (clojure "-M:dev:cljs -m nrepl.cmdline --middleware \"[shadow.cljs.devtools.server.nrepl/middleware,cider.nrepl/cider-middleware]\"")}
+
+  watch
+  {:doc "Start shadow-cljs watch + dev server on port 3000 (standalone, no REPL)"
+   :task (shell "npx shadow-cljs -A:dev:cljs watch app")}
+
+  import-notes
+  {:doc "Import blog posts and media from Obsidian vault to content/.
+         Usage: bb import-notes <articles-dir>
+         Expects <articles-dir>/blog/ and optionally <articles-dir>/media/."
+   :requires ([babashka.fs :as fs]
+              [loicb.me.build.import :as import])
+   :task (let [articles-dir (first *command-line-args*)
+               _            (when-not articles-dir
+                              (println "Usage: bb import-notes <articles-dir>")
+                              (println "  e.g. bb import-notes /path/to/vault/Articles")
+                              (System/exit 1))
+               vault-blog   (str articles-dir "/blog/")
+               vault-media  (str articles-dir "/media/")
+               blog-dir     "content/blog"
+               media-dir    "content/media"]
+           (fs/create-dirs blog-dir)
+           (fs/copy-tree vault-blog blog-dir {:replace-existing true})
+           (println "Blog files copied.")
+           (when (fs/exists? vault-media)
+             (fs/create-dirs media-dir)
+             (fs/copy-tree vault-media media-dir {:replace-existing true})
+             (println "Media copied."))
+           (import/normalize-dir! blog-dir)
+           (println "Import complete."))}
+
+  copy-assets
+  {:doc "Copy content/media to resources/public/assets/media for serving"
+   :requires ([babashka.fs :as fs])
+   :task (when (fs/exists? "content/media")
+           (fs/create-dirs "resources/public/assets/media")
+           (fs/copy-tree "content/media" "resources/public/assets/media" {:replace-existing true})
+           (println "Assets copied to public."))}
+
+  build
+  {:doc "Build optimized JS bundle"
+   :depends [copy-assets]
+   :task (do (shell "npm install")
+             (clojure "-M:cljs -m shadow.cljs.devtools.cli release app"))}
+
+  clean
+  {:doc "Clean build artifacts"
+   :task (shell "rm -rf target .shadow-cljs .cpcache resources/public/js resources/public/assets dist")}
+
+  test
+  {:doc "Run tests (RCT from source files)"
+   :task (clojure "-X:rct")}
+
+  rss
+  {:doc "Generate RSS feeds"
+   :requires ([babashka.fs :as fs])
+   :task (do (fs/create-dirs "resources/public/blog/rss")
+             (clojure "-X:build rss-feeds"))}
+
+  dist
+  {:doc "Build and gather static files for deployment"
+   :depends [build rss copy-assets]
+   :requires ([babashka.fs :as fs]
+              [clojure.edn :as edn]
+              [clojure.string :as str])
+   :task (let [dist-dir  "dist"
+               manifest  (edn/read-string (slurp "resources/public/js/manifest.edn"))
+               js-name   (->> manifest (filter (fn [m] (= :main (:module-id m)))) first :output-name)
+               rendered  (-> (slurp "resources/index-template.html")
+                             (str/replace "{{main-js}}" (str "/js/" js-name))
+                             (str/replace "{{style-css}}" "/css/style.css"))]
+           (fs/delete-tree dist-dir)
+           (fs/create-dirs dist-dir)
+           (spit (str dist-dir "/index.html") rendered)
+           (doseq [[src dest] [["resources/public/css" "/css"]
+                               ["resources/public/js" "/js"]
+                               ["resources/public/assets" "/assets"]
+                               ["resources/public/blog/rss" "/blog/rss"]]]
+             (when (fs/exists? src)
+               (fs/copy-tree src (str dist-dir dest)))))}
+
+  fmt-check
+  {:doc "Check code formatting"
+   :task (clojure "-T:cljfmt check")}
+
+  fmt-fix
+  {:doc "Fix code formatting"
+   :task (clojure "-T:cljfmt fix")}
+
+  outdated
+  {:doc "Show outdated dependencies"
+   :task (clojure "-M:outdated")}}}

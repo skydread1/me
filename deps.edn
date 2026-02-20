@@ -1,0 +1,29 @@
+{:paths ["src" "resources"]
+ :deps {org.clojure/clojure {:mvn/version "1.12.4"}
+        no.cjohansen/replicant {:mvn/version "2025.12.1"}
+        metosin/malli {:mvn/version "0.20.0"}
+        clj-commons/clj-yaml {:mvn/version "1.0.29"}
+        org.commonmark/commonmark {:mvn/version "0.24.0"}
+        clj-rss/clj-rss {:mvn/version "0.4.0"}
+        tick/tick {:mvn/version "1.0"}}
+ :aliases
+ {:dev {:extra-paths ["dev" "test"]
+        :extra-deps {nrepl/nrepl {:mvn/version "1.5.2"}
+                     cider/cider-nrepl {:mvn/version "0.58.0"}
+                     lambdaisland/kaocha {:mvn/version "1.91.1392"}
+                     io.github.robertluo/rich-comment-tests {:mvn/version "1.1.78"}}}
+  :cljs {:extra-deps {thheller/shadow-cljs {:mvn/version "3.3.6"}}}
+  :kaocha {:extra-paths ["test"]
+           :extra-deps {lambdaisland/kaocha {:mvn/version "1.91.1392"}
+                        io.github.robertluo/rich-comment-tests {:mvn/version "1.1.78"}}
+           :main-opts ["-m" "kaocha.runner"]}
+  :rct {:extra-deps {io.github.robertluo/rich-comment-tests {:mvn/version "1.1.78"}}
+        :exec-fn com.mjdowney.rich-comment-tests.test-runner/run-tests-in-file-tree!
+        :exec-args {:dirs #{"src"}}}
+  :build {:extra-paths ["."]
+          :deps {io.github.clojure/tools.build {:git/tag "v0.10.12" :git/sha "216ff79"}}
+          :ns-default build}
+  :cljfmt {:deps {io.github.weavejester/cljfmt {:git/tag "0.16.0" :git/sha "c4a3d14"}}
+           :ns-default cljfmt.tool}
+  :outdated {:deps {com.github.liquidz/antq {:mvn/version "RELEASE"}}
+             :main-opts ["-m" "antq.core"]}}}
