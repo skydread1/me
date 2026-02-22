@@ -4,6 +4,7 @@
         metosin/malli {:mvn/version "0.20.0"}
         clj-commons/clj-yaml {:mvn/version "1.0.29"}
         org.commonmark/commonmark {:mvn/version "0.27.1"}
+        org.commonmark/commonmark-ext-gfm-tables {:mvn/version "0.27.1"}
         clj-rss/clj-rss {:mvn/version "0.4.0"}
         tick/tick {:mvn/version "1.0"}}
  :aliases

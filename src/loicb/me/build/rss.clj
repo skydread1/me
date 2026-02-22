@@ -9,10 +9,12 @@
             [clj-rss.core :as rss]
             [tick.core :as t])
   (:import [org.commonmark.parser Parser]
-           [org.commonmark.renderer.html HtmlRenderer]))
+           [org.commonmark.renderer.html HtmlRenderer]
+           [org.commonmark.ext.gfm.tables TablesExtension]))
 
-(def md-parser (.build (Parser/builder)))
-(def html-renderer (.build (HtmlRenderer/builder)))
+(def extensions [(TablesExtension/create)])
+(def md-parser (-> (Parser/builder) (.extensions extensions) .build))
+(def html-renderer (-> (HtmlRenderer/builder) (.extensions extensions) .build))
 
 (defn md->html
   "Convert markdown string to HTML via commonmark-java."
