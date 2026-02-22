@@ -1,4 +1,18 @@
-# loicb.dev
+<h1 align="center">
+    <a href="https://www.loicb.dev/" target="_blank" rel="noopener noreferrer"><img src="./resources/public/logo.png" alt="loicb.dev" width="28" height="28" style="vertical-align: middle;"></a>
+    www.loicb.dev
+</h1>
+
+<div align="center">
+    <a href="https://www.loicb.dev/"><img src="https://img.shields.io/badge/www.loicb.dev-live-blue" alt="Website"></a>
+    <a href="https://clojure.org/"><img src="https://img.shields.io/badge/clojure-v1.12.4-blue.svg" alt="Clojure"></a>
+    <a href="https://clojurescript.org/"><img src="https://img.shields.io/badge/clojurescript-v1.12.42-blue.svg" alt="ClojureScript"></a>
+    <a href="https://github.com/skydread1/me/actions/workflows/ci.yml"><img src="https://github.com/skydread1/me/actions/workflows/ci.yml/badge.svg" alt="Test"></a>
+    <a href="https://github.com/skydread1/me/actions/workflows/deploy.yml"><img src="https://github.com/skydread1/me/actions/workflows/deploy.yml/badge.svg" alt="Deploy"></a>
+    <a href="https://github.com/skydread1/me/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="License"></a>
+</div>
+
+<br>
 
 Personal portfolio and blog. Built with ClojureScript, [Replicant](https://github.com/cjohansen/replicant), and shadow-cljs.
 
