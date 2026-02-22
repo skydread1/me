@@ -71,6 +71,10 @@ a:hover { color: var(--accent-hover); text-decoration: underline; }
 .site-header {
   border-bottom: 1px solid var(--border);
   padding: 1rem 1.5rem;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  background: var(--bg);
 }
 
 .site-header .header-inner {
@@ -118,9 +122,10 @@ a:hover { color: var(--accent-hover); text-decoration: underline; }
 .icon-link:hover, .theme-toggle:hover { color: var(--accent); text-decoration: none; }
 
 /* Show/hide theme icons based on current theme */
+.show-light, .show-dark { display: flex; align-items: center; }
 .show-dark { display: none; }
 [data-theme="dark"] .show-light { display: none; }
-[data-theme="dark"] .show-dark { display: inline; }
+[data-theme="dark"] .show-dark { display: flex; }
 
 /* ---- Profile section ---- */
 
@@ -155,6 +160,16 @@ a:hover { color: var(--accent-hover); text-decoration: underline; }
   margin-bottom: 1.5rem;
 }
 
+@media (max-width: 600px) {
+  .tag-bar {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    padding-bottom: 0.25rem;
+  }
+  .tag-btn { white-space: nowrap; }
+}
+
 .tag-btn {
   background: var(--bg-secondary);
   border: 1px solid var(--border);
@@ -168,7 +183,7 @@ a:hover { color: var(--accent-hover); text-decoration: underline; }
 }
 
 .tag-btn:hover { border-color: var(--accent); color: var(--accent); }
-.tag-btn.active { background: var(--tag-bg); color: var(--tag-text); border-color: var(--tag-text); }
+.tag-btn.active { background: var(--accent); color: #fff; border-color: var(--accent); }
 
 /* ---- Post list ---- */
 
@@ -215,6 +230,7 @@ a:hover { color: var(--accent-hover); text-decoration: underline; }
 }
 
 .post-tag:hover { opacity: 0.8; }
+.post-tag.active { background: var(--accent); color: #fff; }
 
 .post-tldr {
   color: var(--text-secondary);
@@ -337,10 +353,15 @@ a:hover { color: var(--accent-hover); text-decoration: underline; }
 .site-footer {
   border-top: 1px solid var(--border);
   padding: 1rem 1.5rem;
-  text-align: center;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 0.75rem;
   font-size: 0.8rem;
   color: var(--text-muted);
 }
+
+.site-footer .version { opacity: 0.5; }
 
 /* ---- Syntax highlighting (highlight.js GitHub theme) ---- */
 

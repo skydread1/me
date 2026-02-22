@@ -29,12 +29,14 @@
                vault-media  (str articles-dir "/media/")
                blog-dir     "content/blog"
                media-dir    "content/media"]
+           (when (fs/exists? blog-dir) (fs/delete-tree blog-dir))
            (fs/create-dirs blog-dir)
-           (fs/copy-tree vault-blog blog-dir {:replace-existing true})
+           (fs/copy-tree vault-blog blog-dir)
            (println "Blog files copied.")
            (when (fs/exists? vault-media)
+             (when (fs/exists? media-dir) (fs/delete-tree media-dir))
              (fs/create-dirs media-dir)
-             (fs/copy-tree vault-media media-dir {:replace-existing true})
+             (fs/copy-tree vault-media media-dir)
              (println "Media copied."))
            (import/normalize-dir! blog-dir)
            (println "Import complete."))}

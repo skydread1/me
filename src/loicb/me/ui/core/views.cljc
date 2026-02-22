@@ -79,6 +79,11 @@
         {:href linkedin :target "_blank" :title "LinkedIn"}
         [:svg {:viewBox "0 0 24 24" :width "20" :height "20" :fill "currentColor"}
          [:path {:d "M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433a2.062 2.062 0 01-2.063-2.065 2.064 2.064 0 112.063 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"}]]]
+       [:a.icon-link
+        {:href "/blog/rss/all-feed.xml" :target "_blank" :title "RSS Feed"}
+        [:svg {:viewBox "0 0 24 24" :width "20" :height "20" :fill "currentColor"}
+         [:circle {:cx "6.18" :cy "17.82" :r "2.18"}]
+         [:path {:d "M4 4.44v2.83c7.03 0 12.73 5.7 12.73 12.73h2.83c0-8.59-6.97-15.56-15.56-15.56zm0 5.66v2.83c3.9 0 7.07 3.17 7.07 7.07h2.83c0-5.47-4.43-9.9-9.9-9.9z"}]]]
        #?(:cljs
           [:button.theme-toggle
            {:title "Toggle theme"
@@ -125,8 +130,9 @@
 
 (defn post-card
   "Single post item in the list."
-  [{::keys [dispatch!]} post]
-  (let [{:keys [slug title date tags md-content-short]} post]
+  [{::keys [db dispatch!]} post]
+  (let [{:keys [slug title date tags md-content-short]} post
+        active-tag (:tag-filter db)]
     [:li.post-item {:replicant/key slug}
      [:div.post-title
       [:a {:on {:click #(dispatch! {:db      (fn [d] (db/select-post d slug))
@@ -138,6 +144,7 @@
         [:span.post-tags
          (for [tag tags]
            [:span.post-tag {:replicant/key tag
+                            :class         (when (= tag active-tag) "active")
                             :on {:click #(dispatch! {:db      (fn [d] (db/filter-by-tag d tag))
                                                      :history :push})}}
             tag])])]
@@ -147,10 +154,9 @@
 (defalias post-list-view
   "Home page: profile section + tag filter + post list."
   [{::keys [db dispatch!] :as props}]
-  (let [{:keys [author subtitle bio]} (:site db)]
+  (let [{:keys [subtitle bio]} (:site db)]
     [:div
      [:div.profile-section
-      [:h2 author]
       [:p.subtitle subtitle]
       [:p.bio bio]]
      (tag-bar props)
@@ -195,4 +201,6 @@
     (case (:view db)
       :detail [::post-detail-view props]
       [::post-list-view props])]
-   [:footer.site-footer (:footer (:site db))]])
+   [:footer.site-footer
+    [:span (:footer (:site db))]
+    [:span.version (str "v" (:version db))]]])

@@ -10,3 +10,11 @@
   "Embed site metadata in CLJS bundle at compile time."
   []
   `~(:site config))
+
+(def version
+  (:version (edn/read-string (slurp "resources/version.edn"))))
+
+(defmacro app-version
+  "Embed app version string in CLJS bundle at compile time."
+  []
+  version)

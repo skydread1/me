@@ -21,10 +21,14 @@
             :linkedin ""
             :footer   ""}))
 
+(def app-version
+  #?(:cljs (config/app-version) :clj "dev"))
+
 (def initial-db
   {:view          :home
    :posts         posts
    :site          site
+   :version       app-version
    :selected-slug nil
    :tag-filter    nil})
 
@@ -97,14 +101,14 @@
   )
 
 (defn go-home
-  "Navigate to home view, clearing selection."
+  "Navigate to home view, clearing selection and tag filter."
   [db]
-  (assoc db :view :home :selected-slug nil))
+  (assoc db :view :home :selected-slug nil :tag-filter nil))
 
 ^:rct/test
 (comment
-  (:view (go-home {:view :detail :selected-slug "x"}))
-  ;=> :home
+  (go-home {:view :detail :selected-slug "x" :tag-filter "clojure"})
+  ;=>> {:view :home :selected-slug nil :tag-filter nil}
   )
 
 (defn filter-by-tag
