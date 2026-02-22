@@ -89,7 +89,10 @@
                                ["resources/public/assets" "/assets"]
                                ["resources/public/blog/rss" "/blog/rss"]]]
              (when (fs/exists? src)
-               (fs/copy-tree src (str dist-dir dest)))))}
+               (fs/copy-tree src (str dist-dir dest))))
+           (doseq [f ["logo.png" "favicon.ico"]]
+             (when (fs/exists? (str "resources/public/" f))
+               (fs/copy (str "resources/public/" f) (str dist-dir "/" f)))))}
 
   fmt-check
   {:doc "Check code formatting"
