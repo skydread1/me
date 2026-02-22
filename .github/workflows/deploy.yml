@@ -1,0 +1,56 @@
+name: Deploy to Netlify
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Setup Java
+        uses: actions/setup-java@v5
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+
+      - name: Setup Clojure
+        uses: DeLaGuardo/setup-clojure@13.5
+        with:
+          cli: latest
+          bb: latest
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '20'
+
+      - name: Cache deps
+        uses: actions/cache@v5
+        with:
+          path: |
+            ~/.m2/repository
+            ~/.gitlibs
+            ~/.npm
+          key: ${{ runner.os }}-deps-${{ hashFiles('**/deps.edn', '**/package-lock.json') }}
+
+      - name: Build site
+        run: bb dist
+
+      - name: Deploy to Netlify (prod)
+        uses: netlify/actions/cli@master
+        with:
+          args: deploy --dir=dist --prod --message="Deploy ${{ github.ref_name }} ${{ github.sha }}"
+        env:
+          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
+          NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
+
+      - name: Summary
+        run: |
+          echo "### Deployment Complete :rocket:" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- **Tag:** ${{ github.ref_name }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **URL:** https://www.loicb.dev" >> $GITHUB_STEP_SUMMARY

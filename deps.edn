@@ -3,7 +3,7 @@
         no.cjohansen/replicant {:mvn/version "2025.12.1"}
         metosin/malli {:mvn/version "0.20.0"}
         clj-commons/clj-yaml {:mvn/version "1.0.29"}
-        org.commonmark/commonmark {:mvn/version "0.24.0"}
+        org.commonmark/commonmark {:mvn/version "0.27.1"}
         clj-rss/clj-rss {:mvn/version "0.4.0"}
         tick/tick {:mvn/version "1.0"}}
  :aliases
@@ -21,7 +21,7 @@
         :exec-fn com.mjdowney.rich-comment-tests.test-runner/run-tests-in-file-tree!
         :exec-args {:dirs #{"src"}}}
   :build {:extra-paths ["."]
-          :deps {io.github.clojure/tools.build {:git/tag "v0.10.12" :git/sha "216ff79"}}
+          :extra-deps {io.github.clojure/tools.build {:git/tag "v0.10.12" :git/sha "216ff79"}}
           :ns-default build}
   :cljfmt {:deps {io.github.weavejester/cljfmt {:git/tag "0.16.0" :git/sha "c4a3d14"}}
            :ns-default cljfmt.tool}

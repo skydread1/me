@@ -101,4 +101,15 @@
 
   outdated
   {:doc "Show outdated dependencies"
-   :task (clojure "-M:outdated")}}}
+   :task (clojure "-M:outdated")}
+
+  tag
+  {:doc "Create and push a release tag from resources/version.edn"
+   :requires ([clojure.edn :as edn])
+   :task (let [version (:version (edn/read-string (slurp "resources/version.edn")))
+               tag     (str "v" version)]
+           (println "Creating tag:" tag)
+           (shell "git" "tag" "-a" tag "-m" (str "Release " version))
+           (println "Pushing tag to origin...")
+           (shell "git" "push" "origin" tag)
+           (println (str "Done! CI/CD will deploy with tag " tag)))}}}
