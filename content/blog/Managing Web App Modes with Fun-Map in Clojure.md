@@ -9,6 +9,9 @@ date: 2026-02-17
 repos:
   - [fun-map, "https://github.com/robertluo/fun-map"]
   - [lasagna-pattern, "https://github.com/flybot-sg/lasagna-pattern"]
+rss-feeds:
+  - all
+  - clojure
 ---
 ## TLDR
 

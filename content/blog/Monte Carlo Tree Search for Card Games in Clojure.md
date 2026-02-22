@@ -5,6 +5,8 @@ tags:
   - architecture
   - game-dev
 date: 2021-07-19
+rss-feeds:
+  - all
 ---
 ## TLDR
 

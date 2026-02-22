@@ -4,11 +4,13 @@ tags:
   - dotnet
   - unity
   - devops
-date: 2026-02-17
+date: 2021-02-01
 repos:
   - [magic, "https://github.com/nasser/magic"]
   - [nostrand, "https://github.com/nasser/nostrand"]
   - [Magic.Unity, "https://github.com/nasser/Magic.Unity"]
+rss-feeds:
+  - all
 ---
 ## TLDR
 

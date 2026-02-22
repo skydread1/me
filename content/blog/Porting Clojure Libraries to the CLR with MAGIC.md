@@ -4,9 +4,12 @@ tags:
   - dotnet
   - unity
   - testing
-date: 2026-02-17
+date: 2022-04-08
 repos:
   - [clr.test.check, "https://github.com/skydread1/clr.test.check/tree/magic"]
+rss-feeds:
+  - all
+  - clojure
 ---
 ## TLDR
 

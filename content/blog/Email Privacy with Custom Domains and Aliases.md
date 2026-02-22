@@ -5,6 +5,8 @@ tags:
   - dns
   - email
 date: 2025-06-23
+rss-feeds:
+  - all
 ---
 ## TLDR
 

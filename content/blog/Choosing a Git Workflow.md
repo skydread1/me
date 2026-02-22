@@ -3,6 +3,8 @@ tags:
   - git
   - devops
 date: 2024-05-12
+rss-feeds:
+  - all
 ---
 
 ## TLDR

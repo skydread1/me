@@ -6,6 +6,8 @@ tags:
   - architecture
   - analytics
 date: 2024-08-12
+rss-feeds:
+  - all
 ---
 ## TLDR
 

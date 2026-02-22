@@ -7,6 +7,8 @@ tags:
 date: 2026-02-17
 repos:
   - [lasagna-pattern, "https://github.com/flybot-sg/lasagna-pattern"]
+rss-feeds:
+  - all
 ---
 ## TLDR
 

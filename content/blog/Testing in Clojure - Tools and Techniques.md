@@ -4,6 +4,9 @@ tags:
   - testing
   - babashka
 date: 2024-08-10
+rss-feeds:
+  - all
+  - clojure
 ---
 ## TLDR
 

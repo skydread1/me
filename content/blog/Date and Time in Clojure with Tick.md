@@ -5,6 +5,8 @@ tags:
 date: 2024-04-20
 repos:
   - [juxt/tick, "https://github.com/juxt/tick"]
+rss-feeds:
+  - all
 ---
 
 ## TLDR

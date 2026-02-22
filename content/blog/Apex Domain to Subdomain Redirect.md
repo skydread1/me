@@ -4,6 +4,8 @@ tags:
   - devops
   - dns
 date: 2023-11-09
+rss-feeds:
+  - all
 ---
 ## TLDR
 
