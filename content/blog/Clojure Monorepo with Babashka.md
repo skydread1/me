@@ -245,6 +245,45 @@ CI picks up the tag pattern and deploys:
 | `pull-playground` | `pull-playground-v*` | S3 + CloudFront |
 | `flybot-site` | `flybot-site-v*` | ECR + App Runner |
 
+## Publishing to Clojars
+
+The three core libraries (`pattern`, `collection`, `remote`) are published to [Clojars](https://clojars.org/) as independent Maven artifacts:
+
+| Component | Maven Coordinate |
+|-----------|-----------------|
+| `pattern/` | `sg.flybot/lasagna-pattern` |
+| `collection/` | `sg.flybot/lasagna-collection` |
+| `remote/` | `sg.flybot/lasagna-remote` |
+
+Each component has its own `build.clj` using standard `tools.build` + `deps-deploy`. Version is read from `resources/version.edn` in each component.
+
+### Monorepo deps strategy
+
+`remote` depends on `pattern` and `collection`. For Clojars consumers, those must be Maven coordinates. For local development, they must be `:local/root`. The solution is `:override-deps` in the `:dev` alias:
+
+```clojure
+;; remote/deps.edn
+{:deps {sg.flybot/lasagna-pattern {:mvn/version "0.1.0"}      ;; what Clojars sees
+        sg.flybot/lasagna-collection {:mvn/version "0.1.0"}}   ;; what Clojars sees
+ :aliases
+ {:dev {:override-deps {sg.flybot/lasagna-pattern {:local/root "../pattern"}
+                        sg.flybot/lasagna-collection {:local/root "../collection"}}}}}
+```
+
+`build.clj` creates its basis without aliases, so the POM gets Maven coordinates. All dev/test commands use `-M:dev`, so `:override-deps` kicks in and resolves to local sources.
+
+### Publish order
+
+First-time publish order matters: `pattern` then `collection` then `remote`, since each must be on Clojars before the next can resolve it. The root `bb.edn` provides `jar`, `install`, and `deploy` tasks with the same delegation pattern as `test`:
+
+```bash
+bb jar <component>      # builds JAR
+bb install <component>  # installs to ~/.m2
+bb deploy <component>   # deploys to Clojars
+```
+
+CI is tag-triggered, reusing the same `bb tag` mechanism described above. A tag like `pattern-v0.1.2` triggers a GitHub Action that installs local dependencies and deploys to Clojars.
+
 ## Adding a new component
 
 1. Create the directory with a `deps.edn`

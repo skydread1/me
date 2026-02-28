@@ -20,13 +20,13 @@ The single most important thing for testability is isolating side effects. A pur
 ;; Impure: reads from file, result depends on file content
 (defn fib [variable]
   (when-let [n (-> (slurp "config/env.edn") edn/read-string (get variable) :length)]
-    (->> (iterate (fn [a b](https://www.loicb.dev/blog/a-b) [b (+' a b)]) [0 1])
+    (->> (iterate (fn [[a b]] [b (+' a b)]) [0 1])
          (map first)
          (take n))))
 
 ;; Pure: same input always yields the same output
 (defn fib [n]
-  (->> (iterate (fn [a b](https://www.loicb.dev/blog/a-b) [b (+' a b)]) [0 1])
+  (->> (iterate (fn [[a b]] [b (+' a b)]) [0 1])
        (map first)
        (take n)))
 ```
@@ -39,7 +39,7 @@ Most Clojure developers use `comment` blocks for REPL-driven exploration. [Rich 
 
 ```clojure
 (defn fib [n]
-  (->> (iterate (fn [a b](https://www.loicb.dev/blog/a-b) [b (+' a b)]) [0 1])
+  (->> (iterate (fn [[a b]] [b (+' a b)]) [0 1])
        (map first)
        (take n)))
 

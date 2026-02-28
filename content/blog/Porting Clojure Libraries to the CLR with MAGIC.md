@@ -69,9 +69,9 @@ In Java, equality uses `hashCode` and `equals`. On the CLR, you need `hasheq` an
               (and (instance? MyRecord other) (= m (.m other))))]))
 ```
 
-### defrecord empty override for IL2CPP
+### defrecord empty override for IL2CPP (historical)
 
-When targeting IL2CPP, you must override the default `empty` method on records. Without this, IL2CPP's AOT compilation fails:
+Earlier versions of the toolchain required manually overriding the `empty` method on records for IL2CPP compatibility:
 
 ```clojure
 (defrecord PokerCard [^clojure.lang.Keyword suit ^clojure.lang.Keyword num]
@@ -80,7 +80,7 @@ When targeting IL2CPP, you must override the default `empty` method on records. 
        (empty [_] nil)]))
 ```
 
-Note the splicing reader conditional `#?@`: it requires a vector.
+Note the splicing reader conditional `#?@`: it requires a vector. This is no longer needed manually in newer projects: Magic.Unity's IL2CPP post-processing pipeline handles it automatically.
 
 ### Linter configuration
 
@@ -145,9 +145,9 @@ MAGIC predates `tools.deps` and Leiningen, so it uses its own dependency format:
 ```clojure
 {:name         "My project"
  :source-paths ["src" "test"]
- :dependencies [:github skydread1/clr.test.check "magic"
+ :dependencies [[:github skydread1/clr.test.check "magic"
                  :sha "a23fe55e8b51f574a63d6b904e1f1299700153ed"
-                 :paths ["src"](https://www.loicb.dev/blog/github-skydread1-clr-test-check-magic-sha-a23fe55e8b51f574a63d6b904e1f1299700153ed-paths-src)
+                 :paths ["src"]]
                 [:gitlab my-org/my-private-lib "master"
                  :paths ["src"]
                  :sha "abcdef1234567890abcdef1234567890abcdef12"
@@ -229,4 +229,4 @@ This loads all namespaces into the CLR and runs `clojure.test` against them. Exp
 - **The core problem**: clojure-clr's DLR-based assemblies cannot run on Unity's IL2CPP backend, which is required for mobile. MAGIC emits static IL that works on both desktop and mobile.
 - **Single codebase**: reader conditionals (`.cljc`) let you maintain one source tree for JVM and CLR, avoiding logic duplication.
 - **Type hints matter for performance**: hint function arguments and record fields in `:cljr` branches to avoid boxing and reflection. Keep `:clj` dynamic for test flexibility.
-- **The build pipeline is three commands**: `nos dotnet/build` to compile, `nos dotnet/run-tests` to verify on the CLR, and `nos dotnet/nuget-push` to package for Unity (covered in [MAGIC Compiler and Nostrand Integration](https://www.loicb.dev/blog/magic-compiler-and-nostrand-integration)).
+- **The build pipeline**: `nos dotnet/build` to compile and `nos dotnet/run-tests` to verify on the CLR. The team now uses git submodules to pull Clojure libs into Unity and compiles from source, replacing the earlier NuGet packaging step (see [MAGIC Compiler and Nostrand Integration](https://www.loicb.dev/blog/magic-compiler-and-nostrand-integration)).

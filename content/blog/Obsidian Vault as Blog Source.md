@@ -61,7 +61,7 @@ repos:
 
 | Field | Purpose in vault | Purpose on website |
 |-------|-----------------|-------------------|
-| `tags` | Obsidian search, filtering | Category pages, tag-based navigation |
+| `tags` | Obsidian search, filtering | Tag-based filtering on the home page |
 | `date` | Chronological context | Sort order, display date |
 | `repos` | Quick reference to related code | GitHub links on the article page |
 
@@ -108,37 +108,28 @@ The architecture is intentionally simple:
 │                  │         │                   │
 │  Notes/          │         │  Strips:          │
 │  (not deployed)  │         │  - Internal refs  │
+│                  │         │  Converts:        │
 │                  │         │  - Wiki links     │
-│  private/        │         │  - Private paths  │
-│  (never touched) │         │                   │
+│  Media/          │         │                   │
+│  (not deployed)  │         │                   │
 └──────────────────┘         └──────────────────┘
 ```
 
-The website reads the markdown files from `Articles/blog/`, parses frontmatter, extracts TLDRs, converts markdown to hiccup (Clojure's HTML representation), and renders the result. Internal refs and wiki links are stripped during the build, they are vault-only navigation aids.
+The website reads the markdown files from `Articles/blog/`, parses frontmatter, extracts TLDRs, and embeds the raw markdown in the JS bundle at compile time. At runtime, markdown is rendered in the browser using marked.js and highlight.js. Internal refs are stripped during the build, and wiki links are converted to regular links so they work in the browser.
 
 This separation means:
 
 - **Authoring** happens entirely in Obsidian (or via Claude Code)
-- **The website has no CMS**, it is a static site generated from markdown
+- **The website has no CMS**, it is a static SPA with all content embedded at compile time
 - **Content and presentation are decoupled**, I can redesign the site without touching any article
 - **The vault is portable**, if I switched from ClojureScript to Hugo or Astro tomorrow, the markdown would work unchanged
 
-## What's next
+## The portfolio site
 
-The current portfolio site uses Re-frame + Figwheel. The planned replacement uses a simpler stack:
+The portfolio site is a ClojureScript SPA built with [Replicant](https://github.com/cjohansen/replicant) and [shadow-cljs](https://github.com/thheller/shadow-cljs), hosted on Netlify. It is open source: [github.com/skydread1/me](https://github.com/skydread1/me).
 
-| Layer | Current | Planned |
-|-------|---------|---------|
-| UI | Re-frame (Reagent) | Replicant |
-| Build | Figwheel | shadow-cljs |
-| Hosting | Netlify | Netlify |
+The content pipeline is straightforward. A Babashka task imports articles from the vault into the project, normalizing markdown along the way (stripping internal refs, converting wiki links, rewriting media paths). At compile time, macros load the markdown, parse frontmatter, validate it with Malli, and embed everything in the JS bundle. No server, no CMS, no database.
 
-The content pipeline stays the same. The vault is the source, markdown is the contract. The new site adds two features aimed at making the portfolio AI-readable alongside the human interface:
-
-- **`llms.txt`**, a standardized root file guiding AI crawlers to important content
-- **`me.json`**, a structured dump of skills, projects, and experience for RAG ingestion
-
-The articles themselves do not change. They are already in their final form, sitting in the vault, linked to their research, ready to be rendered by whatever site comes next.
 
 ## Conclusion
 

@@ -41,7 +41,7 @@ date: YYYY-MM-DD
 
 ### Key Rules
 - No H1 headers (Obsidian uses filename as title)
-- Wiki links: [Note Name](https://www.loicb.dev/blog/note-name) for internal references
+- Wiki links: [[Note Name]] for internal references
 - Place technical notes in Notes/
 - Place blog drafts in Articles/blog/
 ```
@@ -166,7 +166,7 @@ My Obsidian installation has zero community plugins. No Dataview, no Templater, 
 
 The real work (writing, linking, tagging, searching) happens through Claude Code. Claude handles the wiki links between notes, picks appropriate tags from the taxonomy, and places files in the right directory. I get the graph and the backlinks panel for free just by having well-linked markdown files.
 
-This means the vault is fully portable. The files are plain markdown with YAML frontmatter and wiki links. If I ever wanted to leave Obsidian, I would just replace `[Note Name](https://www.loicb.dev/blog/note-name)` with standard markdown links and everything still works. There is no lock-in to a plugin ecosystem, no custom syntax, no database.
+This means the vault is fully portable. The files are plain markdown with YAML frontmatter and wiki links. If I ever wanted to leave Obsidian, I would just replace `[[Note Name]]` with standard markdown links and everything still works. There is no lock-in to a plugin ecosystem, no custom syntax, no database.
 
 I still use Obsidian because the mobile app is excellent. I can switch between my personal and dev vaults on my phone, dump an idea into `Temp.md` while commuting, and pick it up later from my desk. But the vault does not depend on Obsidian features. It depends on markdown and Claude Code.
 

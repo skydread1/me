@@ -45,7 +45,7 @@ Rama has a [built-in REST API](https://redplanetlabs.com/docs/~/rest.html) for d
 - **Encapsulation**: the frontend never needs to know about Rama internals (partitions, PState names, query topology signatures)
 - **Authorization**: the API layer handles authentication
 
-We used [lasagna-pull](https://github.com/flybot-sg/lasagna-pull) to represent the entire API as a single pullable EDN data structure. The client sends a pattern describing what it wants, and the server returns exactly that shape. See [Building a Pure Data API with Lasagna Pull](https://www.loicb.dev/blog/building-a-pure-data-api-with-lasagna-pull-md) for how this works in detail.
+We used [lasagna-pull](https://github.com/flybot-sg/lasagna-pull) to represent the entire API as a single pullable EDN data structure. The client sends a pattern describing what it wants, and the server returns exactly that shape. See [Building a Pure Data API with Lasagna Pull](https://www.loicb.dev/blog/building-a-pure-data-api-with-lasagna-pull) for how this works in detail.
 
 Since our dashboards always aggregate across multiple partitions (multiple games, multiple users), we interact with Rama exclusively through query topologies (`foreign-query`), never through direct partition lookups (`foreign-select`).
 
@@ -74,4 +74,4 @@ The POC demonstrated that Rama can serve as the analytics backend for our use ca
 - **Config drift**: the API validation schemas and the Rama module definition were maintained separately
 - **Only rolled-up data**: PStates stored pre-aggregated metrics, with no access to individual records
 
-The next step was to generify the stack into a reusable, configuration-driven platform. That became [Hibou](https://www.loicb.dev/blog/hibou-a-generic-analytics-platform-with-rama-md).
+The next step was to generify the stack into a reusable, configuration-driven platform. That became [Hibou](https://www.loicb.dev/blog/hibou-a-generic-analytics-platform-with-rama).

@@ -14,7 +14,7 @@ Hibou is a configuration-driven analytics platform built on [Rama](https://redpl
 
 ## Context
 
-The [POC](https://www.loicb.dev/blog/gaming-stats-aggregation-with-rama-md) proved that Rama could serve as the analytics backend for our gaming platform. But it also revealed three problems:
+The [POC](https://www.loicb.dev/blog/gaming-stats-aggregation-with-rama) proved that Rama could serve as the analytics backend for our gaming platform. But it also revealed three problems:
 
 - **One monolithic module**: tightly coupled to one client's event schema
 - **Config drift**: the API validation schemas and the Rama module definition were maintained separately
@@ -120,7 +120,7 @@ The query editor generates itself from the Malli schemas derived from the module
 
 ### Dashboards
 
-As described in the [POC article](https://www.loicb.dev/blog/gaming-stats-aggregation-with-rama-md), dashboards are stored in Rama via the `hibou/dashboards` module. A simple depot + PState handling CRUD operations. Keeping dashboards in the same infrastructure as the analytics data avoids introducing another database.
+As described in the [POC article](https://www.loicb.dev/blog/gaming-stats-aggregation-with-rama), dashboards are stored in Rama via the `hibou/dashboards` module. A simple depot + PState handling CRUD operations. Keeping dashboards in the same infrastructure as the analytics data avoids introducing another database.
 
 ## Client integration
 
@@ -131,7 +131,7 @@ A client repo integrates Hibou by providing EDN config files for its analytics m
 3. Use `hibou/api` to create an authenticated API server
 4. Embed `hibou/ui` for the frontend
 
-The mono-repo structure follows the same patterns described in [Clojure Monorepo with Babashka](https://www.loicb.dev/blog/clojure-monorepo-with-babashka-md), with Babashka tasks for building, testing, and deploying each component independently or together.
+The mono-repo structure follows the same patterns described in [Clojure Monorepo with Babashka](https://www.loicb.dev/blog/clojure-monorepo-with-babashka), with Babashka tasks for building, testing, and deploying each component independently or together.
 
 ## What I learned
 

@@ -65,4 +65,4 @@ The service auto-provisions a Let's Encrypt certificate for the apex, so both `h
 
 The apex domain redirect problem has existed for as long as CNAME restrictions have, but the solutions have gotten dramatically cheaper. Unless you need the ALB/NLB for other reasons (complex routing rules, WebSocket support, multiple target groups), a dedicated redirect service is the pragmatic choice. It replaced $36/month of AWS infrastructure with a free service that took five minutes to configure.
 
-See also: [Deploying a Clojure App to AWS with App Runner](https://www.loicb.dev/blog/deploying-a-clojure-app-to-aws-with-app-runner-md) for the full migration from EC2+ALB+NLB to App Runner.
+See also: [Deploying a Clojure App to AWS with App Runner](https://www.loicb.dev/blog/deploying-a-clojure-app-to-aws-with-app-runner) for the full migration from EC2+ALB+NLB to App Runner.

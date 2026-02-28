@@ -32,7 +32,7 @@ The playground supports two modes, toggled via URL path (`/sandbox`, `/remote`):
 | Sandbox | SCI evaluates patterns in-browser against sample data | No |
 | Remote | HTTP POST to a live server API (e.g. [flybot.sg](https://www.flybot.sg/api)) | Yes |
 
-The UI is mode-agnostic. Views dispatch `{:pull :pattern}` and the effect system routes to the right executor (see [dispatch-of](https://www.loicb.dev/blog/building-a-clojurescript-spa-with-replicant-and-dispatch-of-md)). Switching modes changes the transport, not the interface.
+The UI is mode-agnostic. Views dispatch `{:pull :pattern}` and the effect system routes to the right executor (see [Building a ClojureScript SPA with Replicant and dispatch-of](https://www.loicb.dev/blog/building-a-clojurescript-spa-with-replicant-and-dispatch-of)). Switching modes changes the transport, not the interface.
 
 **Sandbox** is the default and the one most people use. It ships with progressive examples that teach the DSL step by step: binding scalars, querying collections, using `:when` constraints, composing across collections, and performing mutations (create, update, delete). Each example loads a pre-filled pattern into the editor. For mutations, the data panel refreshes automatically so you can see the effect.
 

@@ -10,7 +10,7 @@ rss-feeds:
 ---
 ## TLDR
 
-I built an AI for Flybot's card games (Big Two, PDK) using Monte Carlo Tree Search. Pure MCTS turned out to be too slow for practical use, especially after compilation to .NET via MAGIC for Unity. The solution was a hybrid: domain knowledge for early game decisions, MCTS only for endgame positions with few cards remaining. The AI depends solely on a Game protocol, making it game-agnostic.
+A draft implementation of a game-agnostic AI for Flybot's card games using Monte Carlo Tree Search. The implementation depends solely on a `Game` protocol from a shared library, so any game that implements the protocol gets MCTS for free. So far it has only been tested with two games (Big Two, PDK) and is not yet used in production. A colleague will be iterating on it next. Pure MCTS turned out to be too slow for practical use on the frontend (Unity/.NET), so we use domain-knowledge heuristics there. On the JVM side, the hybrid approach (heuristics for early game, MCTS for endgame) shows promise as a backend AI but needs more validation.
 
 ## Context
 
@@ -28,7 +28,7 @@ MCTS builds a search tree by repeatedly **selecting**, **expanding**, **simulati
 
 In practice, card games have a **branching factor** problem. At the start of a Big Two round with 13 cards in hand, the number of possible plays is large. With `{:nb-rollouts 10 :budget 30}` (10 simulations per state, 30 tree-growth iterations), the first move took over 40 seconds in Clojure. And those parameters are not even high enough to guarantee good play.
 
-After compilation to .NET via [MAGIC](https://github.com/nasser/magic) for Unity, performance dropped by roughly another order of magnitude. MCTS was unusable on the client.
+After compilation to .NET via [MAGIC](https://github.com/nasser/magic) for Unity, performance dropped further. MCTS was unusable on the client, so the frontend games use domain-knowledge heuristics exclusively.
 
 ## Domain knowledge
 
@@ -48,11 +48,15 @@ The final design uses a `max-cards` threshold. When the total cards remaining ac
 
 In practice, most of the game is played with domain knowledge. MCTS contributes to endgame positions where the branching factor is small enough for simulations to converge in reasonable time.
 
-Setting `{:max-cards 0}` disables MCTS entirely. This is what runs fastest and is what we deployed to Unity for Big Two.
+On the frontend (Unity/.NET), the games run with `{:max-cards 0}`, disabling MCTS entirely and relying on domain-knowledge heuristics. The hybrid approach with MCTS enabled is used on the JVM side, where performance is sufficient for backend AI decisions.
+
+## Current status
+
+This is a working draft. The MCTS implementation has only been tested with two games (Big Two and PDK) and is not yet deployed to production. A colleague will be picking this up to iterate on the hybrid approach and validate it against a wider set of games and edge cases.
 
 ## What I learned
 
+- **Protocol-driven design pays off.** The entire MCTS implementation depends on a single `Game` protocol. Any game that implements it gets AI for free: no game-specific code in the AI module. This is the most reusable part of the project.
 - **Start with the simplest approach that might work.** Domain knowledge alone turned out to be surprisingly effective. The AI does not need to simulate thousands of games to avoid obvious mistakes.
 - **MCTS needs a manageable branching factor.** Card games at the start of a round have too many possible plays for MCTS to explore meaningfully within a time budget. The hybrid approach bounds the problem.
-- **Protocol-driven design pays off.** Making the AI depend on a Game protocol meant it worked for PDK as well, without changes to the AI code.
 - **Compilation target matters.** The same Clojure code that was slow-but-usable on the JVM became unusable after MAGIC compilation. Performance characteristics of the target runtime should inform algorithm choice early, not after implementation.

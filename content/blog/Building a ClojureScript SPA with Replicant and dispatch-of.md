@@ -214,4 +214,4 @@ Re-frame is powerful, but for apps of this size, the subscription registry and e
 - **Pure `.cljc` state layer**: all transitions are testable on the JVM
 - **Explicit prop threading over global dispatch**: clearer data flow for small-to-medium SPAs
 
-This pattern is used in both [flybot-site](https://github.com/flybot-sg/lasagna-pattern/tree/main/examples/flybot-site) and [pull-playground](https://github.com/flybot-sg/lasagna-pattern/tree/main/examples/pull-playground). See also [Pull Playground](https://www.loicb.dev/blog/pull-playground-interactive-pattern-learning-md) for how the sandbox/remote mode abstraction works in practice.
+This pattern is used in both [flybot-site](https://github.com/flybot-sg/lasagna-pattern/tree/main/examples/flybot-site) and [pull-playground](https://github.com/flybot-sg/lasagna-pattern/tree/main/examples/pull-playground). See also [Pull Playground](https://www.loicb.dev/blog/pull-playground-interactive-pattern-learning) for how the sandbox/remote mode abstraction works in practice.

@@ -53,7 +53,7 @@ Nostrand could fetch public dependencies, but we needed to compile private GitLa
 
 For packaging, NuGet turned out to be the cleanest way to distribute compiled assemblies. I added NuGet pack and push support to Nostrand: a `.csproj` referencing a `.nuspec` at the repo root, with a `nuget.config` for private registry credentials (PATs for GitHub, deploy tokens for GitLab).
 
-### The three-command workflow
+### The build workflow
 
 Each Clojure repo gets a `dotnet.clj` namespace with convenience functions callable via `nos`:
 
@@ -63,7 +63,7 @@ nos dotnet/run-tests    # run all tests on the CLR
 nos dotnet/nuget-push   # pack and push to GitHub/GitLab registry
 ```
 
-A developer can compile a Clojure project and its dependencies to .NET assemblies, verify tests pass on the CLR, and publish a NuGet package in three commands. On the Unity side, `nuget restore` imports everything.
+The NuGet workflow was used initially to package compiled DLLs for consumption in Unity via `nuget restore`. Since then, the team has moved to pulling Clojure libraries as **git submodules** directly into the Unity project and compiling everything from source with a single `nos dotnet/build`. This simplified the pipeline by removing the NuGet packaging step entirely. The core two-command workflow remains: `nos dotnet/build` to compile and `nos dotnet/run-tests` to verify on the CLR.
 
 ### GitHub Action for bootstrapping
 
@@ -91,7 +91,7 @@ Ramsey tackled two categories of optimization in the compiler:
 
 The second phase focused on the bugs I had been reporting that blocked us from running our games:
 
-- **Inconsistent hashing**: compiling with Nostrand and running in Unity produced different hash values for `case` branches, because .NET's `GetHashCode` is not guaranteed stable across runtimes. Fixed by switching to Murmur3.
+- **Inconsistent hashing**: compiling with Nostrand and running in Unity produced different hash values for `case` branches, because .NET's `GetHashCode` is not guaranteed stable across runtimes. Fixed by switching to Murmur3 for keywords and symbols (the common case). A subtler inconsistency remains for raw strings in `Util.hasheq`, which still wraps .NET's unstable `String.GetHashCode()`, but this is dormant in practice since Clojure idiom uses keywords almost everywhere.
 - **Unstable sort**: `sort-by` violated `clojure.core/sort`'s stability guarantee due to the underlying .NET sort being unstable.
 - **Record/datafy interaction**: a subtle clash between records, `walk`, and the typed invocation optimization caused runtime cast errors.
 - **Bootstrap inconsistencies**: some namespaces compiled twice or not at all.
@@ -100,6 +100,6 @@ The second phase focused on the bugs I had been reporting that blocked us from r
 
 ## The result
 
-After the second phase, we successfully compiled and ran our card games in Unity, including the full dependency chain: public GitHub libraries and private GitLab repositories with their own transitive dependencies, all compiled to .NET assemblies through the same three-command workflow. Frontend developers on the team have been using MAGIC-compiled Clojure assemblies in production for years now.
+After the second phase, we successfully compiled and ran our card games in Unity, including the full dependency chain: public GitHub libraries and private GitLab repositories with their own transitive dependencies. Frontend developers on the team have been using MAGIC-compiled Clojure assemblies in production for years now.
 
 I did not write compiler code. What I did was make it possible for a team to actually use the compiler: filing the right bugs, building the packaging pipeline, identifying the architectural problem with Magic.Unity's dual compilation paths, and managing a productive collaboration with someone whose expertise was far deeper than mine in that domain.

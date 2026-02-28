@@ -77,11 +77,11 @@ The backend serves a Ring handler with the pull-based API at `/api`. The fronten
 
 Each aspect of flybot.sg has its own article:
 
-- **[Building a Pure Data API with Lasagna Pull](https://www.loicb.dev/blog/building-a-pure-data-api-with-lasagna-pull-md)**: how the backend uses collections, patterns, and role-based authorization to build a single-endpoint pull API
-- **[Managing Web App Modes with Fun-Map in Clojure](https://www.loicb.dev/blog/managing-web-app-modes-with-fun-map-in-clojure-md)**: how fun-map's `life-cycle-map` wires the system together, with `assoc`-based overrides for dev, dev-with-oauth, and prod modes
-- **[Building a ClojureScript SPA with Replicant and dispatch-of](https://www.loicb.dev/blog/building-a-clojurescript-spa-with-replicant-and-dispatch-of-md)**: the custom frontend architecture using effects-as-maps, a watcher pattern, and pure state functions
-- **[Clojure Monorepo with Babashka](https://www.loicb.dev/blog/clojure-monorepo-with-babashka-md)**: how the monorepo is managed with auto-discovered components and two-layer task delegation
-- **[Deploying a Clojure App to AWS with App Runner](https://www.loicb.dev/blog/deploying-a-clojure-app-to-aws-with-app-runner-md)**: the migration from EC2+ALB+NLB to App Runner with S3-backed storage
-- **[Pull Playground - Interactive Pattern Learning](https://www.loicb.dev/blog/pull-playground-interactive-pattern-learning-md)**: the companion app at [pattern.flybot.sg](https://pattern.flybot.sg) for learning pull patterns interactively
+- **[Building a Pure Data API with Lasagna Pull](https://www.loicb.dev/blog/building-a-pure-data-api-with-lasagna-pull)**: how the backend uses collections, patterns, and role-based authorization to build a single-endpoint pull API
+- **[Managing Web App Modes with Fun-Map in Clojure](https://www.loicb.dev/blog/managing-web-app-modes-with-fun-map-in-clojure)**: how fun-map's `life-cycle-map` wires the system together, with `assoc`-based overrides for dev, dev-with-oauth, and prod modes
+- **[Building a ClojureScript SPA with Replicant and dispatch-of](https://www.loicb.dev/blog/building-a-clojurescript-spa-with-replicant-and-dispatch-of)**: the custom frontend architecture using effects-as-maps, a watcher pattern, and pure state functions
+- **[Clojure Monorepo with Babashka](https://www.loicb.dev/blog/clojure-monorepo-with-babashka)**: how the monorepo is managed with auto-discovered components and two-layer task delegation
+- **[Deploying a Clojure App to AWS with App Runner](https://www.loicb.dev/blog/deploying-a-clojure-app-to-aws-with-app-runner)**: the migration from EC2+ALB+NLB to App Runner with S3-backed storage
+- **[Pull Playground - Interactive Pattern Learning](https://www.loicb.dev/blog/pull-playground-interactive-pattern-learning)**: the companion app at [pattern.flybot.sg](https://pattern.flybot.sg) for learning pull patterns interactively
 
 The full source is in [lasagna-pattern/examples/flybot-site](https://github.com/flybot-sg/lasagna-pattern/tree/main/examples/flybot-site).
