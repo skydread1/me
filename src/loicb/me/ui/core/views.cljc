@@ -4,8 +4,10 @@
    Two views: home (post list with tag filter) and detail (full post).
    Markdown rendered at runtime via marked + highlight.js.
    Components receive {::db state ::dispatch! fn} as namespaced props."
-  (:require [replicant.alias :refer [defalias]]
+  (:require [clojure.string :as str]
+            [replicant.alias :refer [defalias]]
             [loicb.me.ui.core.db :as db]
+            [loicb.me.util :as util]
             #?(:cljs ["marked" :refer [Marked]])
             #?(:cljs ["highlight.js/lib/core" :as hljs])
             #?(:cljs ["highlight.js/lib/languages/clojure" :as hljs-clojure])
@@ -44,7 +46,13 @@
                                 highlighted (if (and lang (hljs/getLanguage lang))
                                               (.-value (hljs/highlight code #js {:language lang}))
                                               (.-value (hljs/highlightAuto code)))]
-                            (str "<pre><code class=\"hljs\">" highlighted "</code></pre>")))}}))
+                            (str "<pre><code class=\"hljs\">" highlighted "</code></pre>")))
+                  :heading (fn [obj]
+                             (let [text  (.-text obj)
+                                   depth (.-depth obj)
+                                   plain (str/replace text #"<[^>]*>" "")
+                                   id    (util/slugify plain)]
+                               (str "<h" depth " id=\"" id "\">" text "</h" depth ">")))}}))
        m)))
 
 (defn render-markdown
@@ -153,7 +161,7 @@
 
 (defalias post-list-view
   "Home page: profile section + tag filter + post list."
-  [{::keys [db dispatch!] :as props}]
+  [{::keys [db _dispatch!] :as props}]
   (let [{:keys [subtitle bio]} (:site db)]
     [:div
      [:div.profile-section
@@ -164,11 +172,26 @@
       (for [post (db/filtered-posts db)]
         (post-card props post))]]))
 
+(defn toc
+  "Table of contents rendered from extracted headings.
+   Only shown when there are 2+ headings."
+  [headings]
+  (when (> (count headings) 1)
+    [:nav.toc
+     [:details {:open true}
+      [:summary "Contents"]
+      [:ul.toc-list
+       (for [{:keys [level text id]} headings]
+         [:li {:replicant/key id
+               :class (when (= level 3) "toc-h3")}
+          [:a {:href (str "#" id)} text]])]]]))
+
 (defalias post-detail-view
-  "Post detail: back link + title + meta + rendered markdown content."
+  "Post detail: back link + title + meta + TOC + rendered markdown content."
   [{::keys [db dispatch!]}]
   (when-let [post (db/selected-post db)]
-    (let [{:keys [title date tags repos md-content slug]} post]
+    (let [{:keys [title date tags repos md-content slug]} post
+          headings (db/extract-headings md-content)]
       [:article.post-detail
        [:a.back-link {:on {:click #(dispatch! {:db db/go-home
                                                :history :push})}}
@@ -189,12 +212,16 @@
           (for [[repo-name repo-url] repos]
             [:a {:href repo-url :target "_blank" :replicant/key repo-name}
              repo-name])])
+       (toc headings)
        [:div.markdown-content {:replicant/key slug}
-        (render-markdown md-content)]])))
+        (render-markdown md-content)]
+       (when (> (count headings) 1)
+         [:div.back-to-top
+          [:a {:href "#"} "Back to top"]])])))
 
 (defn app-view
   "Root view. Switches between home and detail based on :view in db."
-  [{::keys [db dispatch!] :as props}]
+  [{::keys [db _dispatch!] :as props}]
   [:div.app-container
    [::site-header props]
    [:main.main-content

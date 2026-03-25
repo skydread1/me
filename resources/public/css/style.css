@@ -38,6 +38,7 @@
 /* ---- Reset ---- */
 
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; }
 
 body {
   font-family: var(--font-sans);
@@ -264,6 +265,75 @@ a:hover { color: var(--accent-hover); text-decoration: underline; }
 
 .post-detail .post-repos span { color: var(--text-muted); }
 
+/* ---- Table of contents ---- */
+
+.toc {
+  margin-top: 1.5rem;
+  padding: 1rem 1.25rem;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+
+.toc summary {
+  font-weight: 600;
+  font-size: 0.9rem;
+  cursor: pointer;
+  color: var(--text);
+  list-style: none;
+}
+
+.toc summary::before {
+  content: "▸ ";
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.toc details[open] > summary::before {
+  content: "▾ ";
+}
+
+.toc-list {
+  list-style: none;
+  margin: 0.75rem 0 0;
+  padding: 0;
+}
+
+.toc-list li {
+  margin: 0;
+  line-height: 1.8;
+}
+
+.toc-list li a {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  text-decoration: none;
+}
+
+.toc-list li a:hover {
+  color: var(--accent);
+}
+
+.toc-list li.toc-h3 {
+  padding-left: 1rem;
+}
+
+.back-to-top {
+  margin-top: 2rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--border);
+  text-align: center;
+}
+
+.back-to-top a {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+.back-to-top a:hover {
+  color: var(--accent);
+}
+
 /* ---- Markdown content ---- */
 
 .markdown-content {
@@ -277,12 +347,14 @@ a:hover { color: var(--accent-hover); text-decoration: underline; }
   margin-bottom: 0.75rem;
   padding-bottom: 0.3rem;
   border-bottom: 1px solid var(--border);
+  scroll-margin-top: 4rem;
 }
 
 .markdown-content h3 {
   font-size: 1.1rem;
   margin-top: 1.5rem;
   margin-bottom: 0.5rem;
+  scroll-margin-top: 4rem;
 }
 
 .markdown-content p { margin-bottom: 1rem; }

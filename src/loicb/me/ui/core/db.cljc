@@ -4,6 +4,8 @@
    State lives under :app/me in the app-db atom.
    All posts are embedded at compile time via the posts-data macro.
    No server communication needed."
+  (:require [clojure.string :as str]
+            [loicb.me.util :as util])
   #?(:cljs (:require-macros [loicb.me.build.md :as md]
                             [loicb.me.config :as config])))
 
@@ -31,6 +33,51 @@
    :version       app-version
    :selected-slug nil
    :tag-filter    nil})
+
+;;=============================================================================
+;; Table of contents
+;;=============================================================================
+
+(defn extract-headings
+  "Extract h2/h3 headings from markdown for table of contents.
+   Returns [{:level 2 :text \"Section\" :id \"section\"} ...].
+   Skips headings inside fenced code blocks."
+  [md-content]
+  (when (seq md-content)
+    (let [no-code (str/replace md-content #"(?s)```.*?```" "")]
+      (->> (str/split-lines no-code)
+           (keep (fn [line]
+                   (when-let [[_ hashes text] (re-matches #"(#{2,3})\s+(.*)" line)]
+                     (let [clean (util/strip-inline-md text)]
+                       {:level (count hashes)
+                        :text  clean
+                        :id    (util/slugify clean)}))))
+           vec))))
+
+^:rct/test
+(comment
+  (extract-headings "## Intro\nText\n### Details\nMore\n## Conclusion")
+  ;=> [{:level 2 :text "Intro" :id "intro"}
+  ;    {:level 3 :text "Details" :id "details"}
+  ;    {:level 2 :text "Conclusion" :id "conclusion"}]
+
+  (extract-headings "## Real heading\n```\n## Fake heading\n```\n## Another real")
+  ;=> [{:level 2 :text "Real heading" :id "real-heading"}
+  ;    {:level 2 :text "Another real" :id "another-real"}]
+
+  (extract-headings nil)
+  ;=> nil
+
+  (extract-headings "")
+  ;=> nil
+
+  (extract-headings "No headings here")
+  ;=> []
+  )
+
+;;=============================================================================
+;; Tags and filtering
+;;=============================================================================
 
 (defn all-tags
   "Collect all unique tags from posts, sorted alphabetically."

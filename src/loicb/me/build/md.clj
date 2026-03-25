@@ -12,7 +12,8 @@
             [clojure.string :as str]
             [clj-yaml.core :as yaml]
             [malli.core :as m]
-            [malli.error :as me]))
+            [malli.error :as me]
+            [loicb.me.util :as util]))
 
 (def content-dir "./content/blog/")
 
@@ -34,9 +35,7 @@
   (-> (io/file filepath)
       .getName
       (str/replace #"\.md$" "")
-      str/lower-case
-      (str/replace #"[^a-z0-9]+" "-")
-      (str/replace #"^-|-$" "")))
+      util/slugify))
 
 ^:rct/test
 (comment

@@ -5,7 +5,8 @@
    strips internal refs, converts wiki links to web links."
   (:require [clojure.java.io :as io]
             [clojure.string :as str]
-            [loicb.me.config :as config]))
+            [loicb.me.config :as config]
+            [loicb.me.util :as util]))
 
 (def base-url (:base-url config/config))
 
@@ -15,9 +16,7 @@
   [note-name]
   (-> note-name
       (str/replace #"(?i)\.md$" "")
-      str/lower-case
-      (str/replace #"[^a-z0-9]+" "-")
-      (str/replace #"^-|-$" "")))
+      util/slugify))
 
 ^:rct/test
 (comment
