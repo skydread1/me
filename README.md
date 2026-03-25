@@ -18,6 +18,15 @@ Personal portfolio and blog. Built with ClojureScript, [Replicant](https://githu
 
 Static SPA — no server. Blog content is embedded at compile time. Deployed to [Netlify](https://www.netlify.com/).
 
+## Features
+
+- **Faceted tag filtering** — two-dimensional filtering (projects + topics) with AND logic. Select multiple tags to narrow results; click again to deselect. URL encodes active filters as sorted `+`-separated tags (e.g. `/tags/analytics+hibou`) for shareable, canonical links.
+- **Table of contents** — auto-generated from h2/h3 headings, collapsible via native `<details>`, with smooth-scroll anchor links and back-to-top.
+- **Dark/light theme** — toggle with localStorage persistence.
+- **RSS feeds** — per-article feed membership via frontmatter (`rss-feeds: [all, clojure]`).
+- **Compile-time content** — all blog posts embedded in the JS bundle via macros. No server, no API calls.
+- **Obsidian import** — `bb import-notes` normalizes vault markdown (wiki links, media paths, internal refs) for the web.
+
 ## Stack
 
 | Layer | Technology |
@@ -132,6 +141,7 @@ content/
 
 src/loicb/me/
 ├── config.clj                Reads config.edn, provides site-config macro
+├── util.cljc                 Shared utilities (slugify, strip-inline-md)
 ├── build/
 │   ├── md.clj                Post loader, posts-data macro, Malli schema
 │   ├── rss.clj               RSS feed generator

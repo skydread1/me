@@ -2,9 +2,10 @@
   "Browser history integration for SPA navigation.
 
    Routes:
-   /              -> home (all posts)
-   /blog/:slug    -> post detail
-   /tag/:name     -> home filtered by tag")
+   /                    -> home (all posts)
+   /blog/:slug          -> post detail
+   /tags/:name+:name    -> home filtered by tags (AND)"
+  (:require [clojure.string :as str]))
 
 (defn encode-uri [s]
   #?(:clj  (-> (java.net.URLEncoder/encode (str s) "UTF-8") (.replace "+" "%20"))
@@ -16,21 +17,24 @@
 
 (defn state->path
   "Convert app state to URL path."
-  [{:keys [view selected-slug tag-filter]}]
+  [{:keys [view selected-slug tag-filters]}]
   (case view
-    :home   (if tag-filter
-              (str "/tag/" (encode-uri tag-filter))
+    :home   (if (seq tag-filters)
+              (str "/tags/" (->> tag-filters sort (map encode-uri) (str/join "+")))
               "/")
     :detail (str "/blog/" (encode-uri selected-slug))
     "/"))
 
 ^:rct/test
 (comment
-  (state->path {:view :home :tag-filter nil})
+  (state->path {:view :home :tag-filters #{}})
   ;=> "/"
 
-  (state->path {:view :home :tag-filter "clojure"})
-  ;=> "/tag/clojure"
+  (state->path {:view :home :tag-filters #{"clojure"}})
+  ;=> "/tags/clojure"
+
+  (state->path {:view :home :tag-filters #{"web" "clojure"}})
+  ;=> "/tags/clojure+web"
 
   (state->path {:view :detail :selected-slug "my-post"})
   ;=> "/blog/my-post"
@@ -40,8 +44,8 @@
   )
 
 (defn path->state
-  "Parse URL path to {:view ... :slug ... :tag ...}.
-   Returns nil for unknown paths."
+  "Parse URL path to {:view ... :slug ... :tags ...}.
+   Supports /tags/a+b (multi-tag) and /tag/a (legacy single-tag)."
   [path]
   (let [path (or path "/")]
     (cond
@@ -50,8 +54,14 @@
 
       :else
       (or
+       (when-let [[_ tags-str] (re-matches #"/tags/(.+)" path)]
+         {:view :home
+          :tags (->> (str/split tags-str #"\+")
+                     (map decode-uri)
+                     set)})
+
        (when-let [[_ tag] (re-matches #"/tag/(.+)" path)]
-         {:view :home :tag (decode-uri tag)})
+         {:view :home :tags #{(decode-uri tag)}})
 
        (when-let [[_ slug] (re-matches #"/blog/(.+)" path)]
          {:view :detail :slug (decode-uri slug)})
@@ -63,8 +73,14 @@
   (path->state "/")
   ;=> {:view :home}
 
+  (path->state "/tags/clojure")
+  ;=> {:view :home :tags #{"clojure"}}
+
+  (path->state "/tags/clojure+web")
+  ;=> {:view :home :tags #{"clojure" "web"}}
+
   (path->state "/tag/clojure")
-  ;=> {:view :home :tag "clojure"}
+  ;=> {:view :home :tags #{"clojure"}}
 
   (path->state "/blog/my-post")
   ;=> {:view :detail :slug "my-post"}
@@ -72,9 +88,9 @@
   (path->state "/unknown/path")
   ;=> {:view :home}
 
-  ;; Round-trip: state->path->state
-  (:tag (path->state (state->path {:view :home :tag-filter "clojure"})))
-  ;=> "clojure"
+  ;; Round-trip
+  (:tags (path->state (state->path {:view :home :tag-filters #{"clojure" "web"}})))
+  ;=> #{"clojure" "web"}
 
   (:slug (path->state (state->path {:view :detail :selected-slug "hello"})))
   ;=> "hello"

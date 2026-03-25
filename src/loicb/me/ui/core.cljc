@@ -19,7 +19,7 @@
 ;; Scroll
 ;;=============================================================================
 
-(def scroll-keys [:view :tag-filter :selected-slug])
+(def scroll-keys [:view :tag-filters :selected-slug])
 
 (defn should-scroll-top?
   "Check if navigation warrants scrolling to top."
@@ -29,16 +29,16 @@
 
 ^:rct/test
 (comment
-  (should-scroll-top? {:view :home :tag-filter nil :selected-slug nil}
-                      {:view :detail :tag-filter nil :selected-slug "x"})
+  (should-scroll-top? {:view :home :tag-filters #{} :selected-slug nil}
+                      {:view :detail :tag-filters #{} :selected-slug "x"})
   ;=> true
 
-  (should-scroll-top? {:view :home :tag-filter nil :selected-slug nil}
-                      {:view :home :tag-filter nil :selected-slug nil})
+  (should-scroll-top? {:view :home :tag-filters #{} :selected-slug nil}
+                      {:view :home :tag-filters #{} :selected-slug nil})
   ;=> false
 
-  (should-scroll-top? {:view :home :tag-filter nil :selected-slug nil}
-                      {:view :home :tag-filter "clojure" :selected-slug nil})
+  (should-scroll-top? {:view :home :tag-filters #{} :selected-slug nil}
+                      {:view :home :tag-filters #{"clojure"} :selected-slug nil})
   ;=> true
   )
 
@@ -102,9 +102,9 @@
    (defn on-popstate
      "Handle browser back/forward. Parses URL and dispatches state change."
      [parsed]
-     (let [{:keys [view slug tag]} parsed]
+     (let [{:keys [view slug tags]} parsed]
        (case view
-         :home   (dispatch! {:db (fn [d] (assoc d :view :home :tag-filter tag :selected-slug nil))})
+         :home   (dispatch! {:db (fn [d] (assoc d :view :home :tag-filters (or tags #{}) :selected-slug nil))})
          :detail (dispatch! {:db (fn [d] (db/select-post d slug))})
          nil))))
 

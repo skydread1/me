@@ -116,31 +116,61 @@
              [:line {:x1 "4.22" :y1 "19.78" :x2 "5.64" :y2 "18.36"}]
              [:line {:x1 "18.36" :y1 "5.64" :x2 "19.78" :y2 "4.22"}]]]])]]]))
 
+(defn tag-classes
+  "Build CSS class vector for a tag button/badge."
+  [db tag active-tags]
+  (cond-> []
+    (contains? active-tags tag) (conj "active")
+    (db/project-tag? db tag)    (conj "project")))
+
+(defn tag-row
+  "A row of tag filter buttons with toggle semantics."
+  [db dispatch! tags active-tags]
+  (for [tag tags]
+    [:button.tag-btn
+     {:replicant/key tag
+      :class         (tag-classes db tag active-tags)
+      :on            {:click #(dispatch! {:db (fn [d] (db/toggle-tag d tag))
+                                          :history :push})}}
+     tag]))
+
 (defn tag-bar
-  "Tag filter bar. Shows all tags, highlights active filter."
+  "Tag filter bar. Two rows: projects and topics, each with scoped All button."
   [{::keys [db dispatch!]}]
-  (let [tags       (db/all-tags db)
-        active-tag (:tag-filter db)]
-    (when (seq tags)
-      [:div.tag-bar
-       [:button.tag-btn
-        {:class (when-not active-tag "active")
-         :on {:click #(dispatch! {:db db/clear-filter
-                                  :history :push})}}
-        "All"]
-       (for [tag tags]
-         [:button.tag-btn
-          {:replicant/key tag
-           :class         (when (= tag active-tag) "active")
-           :on            {:click #(dispatch! {:db (fn [d] (db/filter-by-tag d tag))
-                                               :history :push})}}
-          tag])])))
+  (let [{:keys [project-tags topic-tags]} (db/tags-by-type db)
+        active-tags  (:tag-filters db #{})
+        ptag-set     (set project-tags)
+        ttag-set     (set topic-tags)
+        no-projects? (empty? (filter ptag-set active-tags))
+        no-topics?   (empty? (filter ttag-set active-tags))]
+    (when (or (seq project-tags) (seq topic-tags))
+      [:div.tag-bar-container
+       (when (seq project-tags)
+         [:div.tag-row
+          [:span.tag-label "Projects"]
+          [:div.tag-group
+           [:button.tag-btn.project
+            {:class (when no-projects? "active")
+             :on {:click #(dispatch! {:db (fn [d] (db/clear-filters d ptag-set))
+                                      :history :push})}}
+            "All"]
+           (tag-row db dispatch! project-tags active-tags)]])
+       (when (seq topic-tags)
+         [:div.tag-row
+          [:span.tag-label "Topics"]
+          [:div.tag-group
+           [:button.tag-btn
+            {:class (when no-topics? "active")
+             :on {:click #(dispatch! {:db (fn [d] (db/clear-filters d ttag-set))
+                                      :history :push})}}
+            "All"]
+           (tag-row db dispatch! topic-tags active-tags)]])])))
 
 (defn post-card
   "Single post item in the list."
   [{::keys [db dispatch!]} post]
   (let [{:keys [slug title date tags md-content-short]} post
-        active-tag (:tag-filter db)]
+        active-tags (:tag-filters db #{})]
     [:li.post-item {:replicant/key slug}
      [:div.post-title
       [:a {:on {:click #(dispatch! {:db      (fn [d] (db/select-post d slug))
@@ -152,8 +182,8 @@
         [:span.post-tags
          (for [tag tags]
            [:span.post-tag {:replicant/key tag
-                            :class         (when (= tag active-tag) "active")
-                            :on {:click #(dispatch! {:db      (fn [d] (db/filter-by-tag d tag))
+                            :class         (tag-classes db tag active-tags)
+                            :on {:click #(dispatch! {:db      (fn [d] (db/toggle-tag d tag))
                                                      :history :push})}}
             tag])])]
      (when (seq md-content-short)
@@ -203,6 +233,7 @@
           [:span.post-tags
            (for [tag tags]
              [:span.post-tag {:replicant/key tag
+                              :class (when (db/project-tag? db tag) "project")
                               :on {:click #(dispatch! {:db      (fn [d] (db/filter-by-tag d tag))
                                                        :history :push})}}
               tag])])]

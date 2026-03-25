@@ -13,6 +13,9 @@
   --accent-hover: #1d4ed8;
   --tag-bg: #f0f4ff;
   --tag-text: #2563eb;
+  --project-tag-bg: #fef3e2;
+  --project-tag-text: #b45309;
+  --project-tag-active: #b45309;
   --code-bg: #f5f5f5;
   --code-text: #1a1a1a;
   --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
@@ -31,6 +34,9 @@
   --accent-hover: #93c5fd;
   --tag-bg: #1e3a5f;
   --tag-text: #60a5fa;
+  --project-tag-bg: #422006;
+  --project-tag-text: #fbbf24;
+  --project-tag-active: #b45309;
   --code-bg: #2d2d2d;
   --code-text: #e0e0e0;
 }
@@ -154,21 +160,46 @@ a:hover { color: var(--accent-hover); text-decoration: underline; }
 
 /* ---- Tag filter ---- */
 
-.tag-bar {
+.tag-bar-container {
+  margin-bottom: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.tag-bar-container .tag-row:not(:last-child) {
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.tag-row {
+  display: grid;
+  grid-template-columns: 4.5rem 1fr;
+  gap: 0.5rem;
+  align-items: start;
+}
+
+.tag-label {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  padding-top: 0.3rem;
+}
+
+.tag-group {
   display: flex;
   flex-wrap: wrap;
   gap: 0.5rem;
-  margin-bottom: 1.5rem;
 }
 
 @media (max-width: 600px) {
-  .tag-bar {
-    flex-wrap: nowrap;
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
-    padding-bottom: 0.25rem;
+  .tag-row {
+    grid-template-columns: 1fr;
   }
-  .tag-btn { white-space: nowrap; }
+  .tag-label {
+    margin-bottom: -0.25rem;
+  }
 }
 
 .tag-btn {
@@ -185,6 +216,9 @@ a:hover { color: var(--accent-hover); text-decoration: underline; }
 
 .tag-btn:hover { border-color: var(--accent); color: var(--accent); }
 .tag-btn.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+.tag-btn.project { color: var(--project-tag-text); border-color: var(--project-tag-text); background: var(--project-tag-bg); }
+.tag-btn.project:hover { opacity: 0.85; }
+.tag-btn.project.active { background: var(--project-tag-active); color: #fff; border-color: var(--project-tag-active); }
 
 /* ---- Post list ---- */
 
@@ -232,6 +266,8 @@ a:hover { color: var(--accent-hover); text-decoration: underline; }
 
 .post-tag:hover { opacity: 0.8; }
 .post-tag.active { background: var(--accent); color: #fff; }
+.post-tag.project { background: var(--project-tag-bg); color: var(--project-tag-text); }
+.post-tag.project.active { background: var(--project-tag-active); color: #fff; }
 
 .post-tldr {
   color: var(--text-secondary);

@@ -1,12 +1,13 @@
 {:base-url "https://www.loicb.dev"
 
  :site
- {:author   "Loic Blanchard"
-  :subtitle "Staff Software Engineer"
-  :bio      "Clojure, architecture, and engineering decisions. Based in Singapore."
-  :github   "https://github.com/skydread1"
-  :linkedin "https://www.linkedin.com/in/blanchardloic/"
-  :footer   "Built with Clojure(script)"}
+ {:author       "Loic Blanchard"
+  :subtitle     "Staff Software Engineer"
+  :bio          "Clojure, architecture, and engineering decisions. Based in Singapore."
+  :github       "https://github.com/skydread1"
+  :linkedin     "https://www.linkedin.com/in/blanchardloic/"
+  :footer       "Built with Clojure(script)"
+  :project-tags #{"lasagna-pattern" "magic" "hibou" "meta-game" "portfolio"}}
 
  :rss-feeds
  {"clojure" {:title       "Loic Blanchard - Clojure Blog Feed"

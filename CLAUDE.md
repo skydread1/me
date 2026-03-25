@@ -38,6 +38,16 @@ Effects execute in deterministic order: `:db` first, then `:history`.
 
 Pure `db -> db` updater functions in `db.cljc`. Testable on JVM. All state lives under `:app/me` in the app-db atom.
 
+### Faceted tag filtering
+
+Tags are split into two categories defined in `config.edn` `:project-tags`: project tags (e.g. `lasagna-pattern`, `hibou`) and topic tags (everything else). The tag bar renders two rows with distinct styling (amber for projects, blue for topics).
+
+Filtering uses AND logic with a set of active tags (`:tag-filters #{}`). `toggle-tag` adds/removes a tag from the set. `filtered-posts` returns posts matching ALL selected tags. URLs encode filters as sorted `+`-separated tags: `/tags/analytics+hibou`. Legacy `/tag/x` URLs still parse correctly.
+
+### Shared utilities
+
+`util.cljc` contains cross-cutting text functions (`slugify`, `strip-inline-md`) used by build, UI, and import namespaces. This avoids `build/ -> ui/` cross-module dependencies.
+
 ### Site configuration
 
 `config.edn` at project root holds site metadata (author, URLs, RSS feed config). Read at build/macro-expansion time by `config.clj`. Site metadata is embedded in the CLJS bundle via `(config/site-config)` macro in `db.cljc`. Views read it from `(:site db)`.
@@ -77,10 +87,11 @@ Every new db updater, history function, or build helper needs an RCT test direct
 ## Key Files
 
 ```
-config.edn                    # Site metadata, RSS feed config
+config.edn                    # Site metadata, RSS feed config, project-tags
 build.clj                     # tools.build entry (RSS generation)
 src/loicb/me/
 ├── config.clj                # Reads config.edn, site-config macro
+├── util.cljc                 # Shared utilities (slugify, strip-inline-md)
 ├── build/
 │   ├── md.clj                # Markdown loader, posts-data macro, Malli schema
 │   ├── rss.clj               # RSS feed generator (commonmark-java)
@@ -88,8 +99,8 @@ src/loicb/me/
 └── ui/
     ├── core.cljc             # Entry point, dispatch-of, rendering, init
     └── core/
-        ├── db.cljc           # Pure db updaters, initial-db, site metadata
-        ├── history.cljc      # URL routing (state <-> path)
+        ├── db.cljc           # Pure db updaters, initial-db, TOC, faceted filtering
+        ├── history.cljc      # URL routing (state <-> path, multi-tag URLs)
         └── views.cljc        # Replicant defalias components
 dev/
 └── user.clj                  # REPL helpers: start!, stop!, cljs-repl!
