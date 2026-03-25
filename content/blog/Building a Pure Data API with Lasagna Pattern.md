@@ -3,6 +3,7 @@ tags:
   - clojure
   - architecture
   - web
+  - lasagna-pattern
 date: 2026-02-17
 repos:
   - [lasagna-pattern, "https://github.com/flybot-sg/lasagna-pattern"]
@@ -20,7 +21,7 @@ In a typical Clojure web app, each API endpoint is a function that parses parame
 
 We wanted a different model: **define the data as nouns, let patterns express what the client wants, and let the shape of the data structure enforce authorization.** No route table, no controller layer, no resolver functions.
 
-The [lasagna-pattern](https://github.com/flybot-sg/lasagna-pattern) monorepo, designed by [@Robert Luo](https://github.com/robertluo), provides three composable libraries that make this work. The core components (`pattern`, `collection`, `remote`) implement an architecture Robert had been thinking about for years, evolving from an earlier pull-pattern library. This article covers how they are applied in [flybot-site](https://github.com/flybot-sg/lasagna-pattern/tree/main/examples/flybot-site), a full-stack Clojure blog platform. For background on the pattern-matching DSL itself, see the [lasagna-pull README](https://github.com/flybot-sg/lasagna-pull).
+The [lasagna-pattern](https://github.com/flybot-sg/lasagna-pattern) monorepo, designed by [@Robert Luo](https://github.com/robertluo), provides three composable libraries that make this work. The core components (`pattern`, `collection`, `remote`) implement an architecture Robert had been thinking about for years, evolving from an earlier pull-pattern library. This article covers how they are applied in [flybot-site](https://github.com/flybot-sg/lasagna-pattern/tree/main/examples/flybot-site), a full-stack Clojure blog platform. For background on the pattern-matching DSL itself, see the [pattern library README](https://github.com/flybot-sg/lasagna-pattern/tree/main/pattern).
 
 ## The three layers
 
@@ -250,6 +251,27 @@ The `remote/` layer maps error types to HTTP status codes:
 ```
 
 This keeps collections pure: they return data describing what happened. The HTTP layer decides how to represent it on the wire.
+
+### Partial success on reads
+
+The `remote/` layer detects errors along variable paths during reads. When a `with-role` gate returns `{:error {:type :forbidden ...}}` for a missing role, the error flows through as inline data. A guest requesting `'{:guest {:posts ?all} :admin {:posts ?all}}` gets the guest data back alongside the forbidden error for `:admin`. One branch failing does not fail the whole request.
+
+The current model embeds errors inline in the response. For mutations, `:detect :error` maps them to HTTP status codes. For reads, errors are detected along the path before any mutation is attempted, so a forbidden role gate prevents writes without needing a separate sentinel.
+
+A planned improvement is to move toward GraphQL-style collected errors, where failed branches become `nil` and errors are gathered in a top-level array with path information:
+
+```clojure
+;; Current: errors inline in data
+{:status 200
+ :body {all {:error {:type :forbidden ...}}}}
+
+;; Planned: GraphQL-style partial success
+{:status 200
+ :body {data   {guest-posts [...], admin-posts nil}
+        errors [{:type :forbidden :path [:admin]}]}}
+```
+
+This follows the same approach as [GraphQL](https://graphql.org/learn/response/) and [Pathom3](https://pathom3.wsscode.com/docs/error-handling/) (attribute-errors in lenient mode). Alongside this, a planned `error-gate` function would replace plain error maps with a sentinel that implements `ILookup` (returns self, so pattern traversal keeps working), `Mutable` (returns the error for mutations), and `Wireable` (serializes as the error map). This would make the coarse authorization layer more robust for deeply nested patterns.
 
 ## Lazy fields and on-demand computation
 

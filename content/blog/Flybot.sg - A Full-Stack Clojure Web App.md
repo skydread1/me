@@ -4,6 +4,7 @@ tags:
   - clojurescript
   - architecture
   - web
+  - lasagna-pattern
 date: 2026-02-17
 repos:
   - [lasagna-pattern, "https://github.com/flybot-sg/lasagna-pattern"]
@@ -77,7 +78,7 @@ The backend serves a Ring handler with the pull-based API at `/api`. The fronten
 
 Each aspect of flybot.sg has its own article:
 
-- **[Building a Pure Data API with Lasagna Pull](https://www.loicb.dev/blog/building-a-pure-data-api-with-lasagna-pull)**: how the backend uses collections, patterns, and role-based authorization to build a single-endpoint pull API
+- **[Building a Pure Data API with Lasagna Pattern](https://www.loicb.dev/blog/building-a-pure-data-api-with-lasagna-pattern)**: how the backend uses collections, patterns, and role-based authorization to build a single-endpoint pull API
 - **[Managing Web App Modes with Fun-Map in Clojure](https://www.loicb.dev/blog/managing-web-app-modes-with-fun-map-in-clojure)**: how fun-map's `life-cycle-map` wires the system together, with `assoc`-based overrides for dev, dev-with-oauth, and prod modes
 - **[Building a ClojureScript SPA with Replicant and dispatch-of](https://www.loicb.dev/blog/building-a-clojurescript-spa-with-replicant-and-dispatch-of)**: the custom frontend architecture using effects-as-maps, a watcher pattern, and pure state functions
 - **[Clojure Monorepo with Babashka](https://www.loicb.dev/blog/clojure-monorepo-with-babashka)**: how the monorepo is managed with auto-discovered components and two-layer task delegation

@@ -2,10 +2,10 @@
 tags:
   - clojure
   - clojurescript
-  - architecture
   - sci
   - web
   - aws
+  - lasagna-pattern
 date: 2026-02-17
 repos:
   - [lasagna-pattern, "https://github.com/flybot-sg/lasagna-pattern"]
@@ -15,11 +15,11 @@ rss-feeds:
 ---
 ## TLDR
 
-[Pull Playground](https://pattern.flybot.sg) is an interactive SPA for learning the [lasagna-pull](https://github.com/flybot-sg/lasagna-pattern) pattern DSL. Two modes: sandbox (runs entirely in the browser via SCI) and remote (sends patterns to a live server). Same UI, same pull engine, different transport.
+[Pull Playground](https://pattern.flybot.sg) is an interactive SPA for learning the [lasagna-pattern](https://github.com/flybot-sg/lasagna-pattern) DSL. Two modes: sandbox (runs entirely in the browser via SCI) and remote (sends patterns to a live server). Same UI, same pull engine, different transport.
 
 ## Context
 
-The [lasagna-pull](https://github.com/flybot-sg/lasagna-pattern) pattern DSL is central to how we build APIs at Flybot (see [Building a Pure Data API with Lasagna Pull](https://www.loicb.dev/blog/building-a-pure-data-api-with-lasagna-pull)). But learning the syntax from documentation alone is slow. You need to type patterns, see results, and build intuition through experimentation.
+The [lasagna-pattern](https://github.com/flybot-sg/lasagna-pattern) DSL is central to how we build APIs at Flybot (see [Building a Pure Data API with Lasagna Pattern](https://www.loicb.dev/blog/building-a-pure-data-api-with-lasagna-pattern)). But learning the syntax from documentation alone is slow. You need to type patterns, see results, and build intuition through experimentation.
 
 I built the playground as a companion to [flybot.sg](https://www.flybot.sg/). The goal was a zero-setup environment where someone could open a URL and start writing patterns immediately, without cloning a repo, starting a REPL, or connecting to a database.
 

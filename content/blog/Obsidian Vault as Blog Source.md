@@ -1,8 +1,8 @@
 ---
 tags:
   - obsidian
-  - architecture
   - web
+  - portfolio
 date: 2026-02-19
 rss-feeds:
   - all

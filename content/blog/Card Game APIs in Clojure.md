@@ -1,8 +1,8 @@
 ---
 tags:
   - clojure
-  - architecture
   - game-dev
+  - meta-game
 date: 2020-01-06
 repos:
   - [clr.test.check, "https://github.com/skydread1/clr.test.check/tree/magic"]

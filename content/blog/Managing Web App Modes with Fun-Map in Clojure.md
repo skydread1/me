@@ -2,9 +2,9 @@
 tags:
   - clojure
   - architecture
-  - dependency-injection
   - fun-map
   - web
+  - lasagna-pattern
 date: 2026-02-17
 repos:
   - [fun-map, "https://github.com/robertluo/fun-map"]

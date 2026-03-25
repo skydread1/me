@@ -5,6 +5,7 @@ tags:
   - architecture
   - replicant
   - web
+  - lasagna-pattern
 date: 2026-02-17
 repos:
   - [lasagna-pattern, "https://github.com/flybot-sg/lasagna-pattern"]
@@ -29,7 +30,7 @@ The conventional Replicant approach is to return **action descriptors** (data) f
 (defmethod handle-action :save-post [_ params] ...)
 ```
 
-We took a different path: components **close over `dispatch!`** and call it directly with an **effect map**. The idea originated from [@Robert Luo](https://github.com/robertluo) and the implementation was first iterated on in an internal project by a [colleague](https://github.com/chickendreanso) and myself. I then applied it to both [flybot-site](https://github.com/flybot-sg/lasagna-pattern/tree/main/examples/flybot-site) and [pull-playground](https://github.com/flybot-sg/lasagna-pattern/tree/main/examples/pull-playground).
+We took a different path: components **close over `dispatch!`** and call it directly with an **effect map**. The idea originated from [@Robert Luo](https://github.com/robertluo) and the implementation was first iterated on in an internal project by [Andrean](https://github.com/chickendreanso) and myself. I then applied it to both [flybot-site](https://github.com/flybot-sg/lasagna-pattern/tree/main/examples/flybot-site) and [pull-playground](https://github.com/flybot-sg/lasagna-pattern/tree/main/examples/pull-playground).
 
 ## Effects as maps
 

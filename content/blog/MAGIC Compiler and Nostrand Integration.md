@@ -4,6 +4,7 @@ tags:
   - dotnet
   - unity
   - devops
+  - magic
 date: 2021-02-01
 repos:
   - [magic, "https://github.com/nasser/magic"]

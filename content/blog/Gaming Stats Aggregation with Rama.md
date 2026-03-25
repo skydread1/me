@@ -3,8 +3,8 @@ tags:
   - clojure
   - rama
   - kafka
-  - architecture
   - analytics
+  - hibou
 date: 2024-08-12
 rss-feeds:
   - all
@@ -45,13 +45,13 @@ Rama has a [built-in REST API](https://redplanetlabs.com/docs/~/rest.html) for d
 - **Encapsulation**: the frontend never needs to know about Rama internals (partitions, PState names, query topology signatures)
 - **Authorization**: the API layer handles authentication
 
-We used [lasagna-pull](https://github.com/flybot-sg/lasagna-pull) to represent the entire API as a single pullable EDN data structure. The client sends a pattern describing what it wants, and the server returns exactly that shape. See [Building a Pure Data API with Lasagna Pull](https://www.loicb.dev/blog/building-a-pure-data-api-with-lasagna-pull) for how this works in detail.
+We used [lasagna-pattern](https://github.com/flybot-sg/lasagna-pattern) to represent the entire API as a single pullable EDN data structure. The client sends a pattern describing what it wants, and the server returns exactly that shape. See [Building a Pure Data API with Lasagna Pattern](https://www.loicb.dev/blog/building-a-pure-data-api-with-lasagna-pattern) for how this works in detail.
 
 Since our dashboards always aggregate across multiple partitions (multiple games, multiple users), we interact with Rama exclusively through query topologies (`foreign-query`), never through direct partition lookups (`foreign-select`).
 
 ## From Clerk notebook to SPA
 
-A colleague started the frontend as a [Clerk](https://clerk.vision/) notebook, using Reagent and [clerk-sync](https://book.clerk.vision/#clerk-sync) to make it interactive. The notebook hit the API via HTTP POST and rendered results in charts, with the dashboard refreshing every 5 minutes.
+The first frontend was a [Clerk](https://clerk.vision/) notebook, using Reagent and [clerk-sync](https://book.clerk.vision/#clerk-sync) for interactivity. The notebook hit the API via HTTP POST and rendered results in charts, with the dashboard refreshing every 5 minutes.
 
 This worked well for internal validation but was not suitable for production use. We migrated to a proper SPA using [Replicant](https://github.com/cjohansen/replicant) for rendering and ECharts for visualizations.
 

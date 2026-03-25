@@ -2,8 +2,8 @@
 tags:
   - clojure
   - algorithms
-  - architecture
   - game-dev
+  - meta-game
 date: 2021-07-19
 rss-feeds:
   - all

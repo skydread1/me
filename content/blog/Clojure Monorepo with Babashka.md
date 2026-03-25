@@ -4,6 +4,7 @@ tags:
   - babashka
   - architecture
   - devops
+  - lasagna-pattern
 date: 2026-02-17
 repos:
   - [lasagna-pattern, "https://github.com/flybot-sg/lasagna-pattern"]

@@ -2,8 +2,8 @@
 tags:
   - clojure
   - rama
-  - architecture
   - analytics
+  - hibou
 date: 2025-10-13
 rss-feeds:
   - all
@@ -52,7 +52,7 @@ When the config changes, the module, the API validation, and the UI forms all ad
 
 ## Two module architectures
 
-Building the platform, I discovered that no single PState design serves all analytics needs well. I ended up with two complementary approaches. A colleague joined the implementation effort and contributed optimizations to the column-based PState layout and refactoring work that simplified the nested module configs.
+Building the platform, I discovered that no single PState design serves all analytics needs well. I ended up with two complementary approaches. [Andrean](https://github.com/chickendreanso) joined the implementation effort and contributed optimizations to the column-based PState layout and refactoring work that simplified the nested module configs.
 
 ### Nested (pre-aggregated)
 
@@ -112,7 +112,7 @@ This is not a tuning problem. It is an architectural difference in how data is s
 
 ### API
 
-Like in the POC, I built a custom API layer rather than using Rama's built-in REST API. `hibou/api` provides a pullable interface using [lasagna-pull](https://github.com/flybot-sg/lasagna-pull). The client sends an EDN pattern describing the data it wants, and the server returns exactly that shape. Malli validates all queries before they reach the Rama cluster, and the API handles authentication via SSO tokens. The frontend never sees Rama internals.
+Like in the POC, I built a custom API layer rather than using Rama's built-in REST API. `hibou/api` provides a pullable interface using [lasagna-pattern](https://github.com/flybot-sg/lasagna-pattern). The client sends an EDN pattern describing the data it wants, and the server returns exactly that shape. Malli validates all queries before they reach the Rama cluster, and the API handles authentication via SSO tokens. The frontend never sees Rama internals.
 
 ### UI
 

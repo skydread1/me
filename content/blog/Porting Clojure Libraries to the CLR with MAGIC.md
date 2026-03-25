@@ -4,6 +4,7 @@ tags:
   - dotnet
   - unity
   - testing
+  - magic
 date: 2022-04-08
 repos:
   - [clr.test.check, "https://github.com/skydread1/clr.test.check/tree/magic"]
