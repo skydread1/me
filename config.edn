@@ -2,8 +2,14 @@
 
  :site
  {:author       "Loic Blanchard"
-  :subtitle     "Staff Software Engineer"
-  :bio          "Clojure, architecture, and engineering decisions. Based in Singapore."
+  :title        "Staff Software Engineer"
+  :company      "Flybot"
+  :company-url  "https://www.flybot.sg"
+  :location     "Singapore"
+  :bio          "Production systems, developer tooling, and the architecture decisions behind them."
+  :career-start 2018
+  :highlights   [{:label "Clojure"             :type :topic}
+                 {:label "AI-powered workflows" :type :project}]
   :github       "https://github.com/skydread1"
   :linkedin     "https://www.linkedin.com/in/blanchardloic/"
   :footer       "Built with Clojure(script)"

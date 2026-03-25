@@ -16,13 +16,18 @@
 (def site
   "Site metadata loaded at compile time (CLJS) or defaults (CLJ for testing)."
   #?(:cljs (config/site-config)
-     :clj  {:author       "Test"
-            :subtitle     ""
-            :bio          ""
-            :github       ""
-            :linkedin     ""
-            :footer       ""
-            :project-tags #{}}))
+     :clj  {:author           "Test"
+            :title            ""
+            :company          ""
+            :company-url      ""
+            :location         ""
+            :bio              ""
+            :years-experience 0
+            :highlights       []
+            :github           ""
+            :linkedin         ""
+            :footer           ""
+            :project-tags     #{}}))
 
 (def app-version
   #?(:cljs (config/app-version) :clj "dev"))

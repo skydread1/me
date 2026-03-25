@@ -140,22 +140,39 @@ a:hover { color: var(--accent-hover); text-decoration: underline; }
   margin-bottom: 2rem;
   padding-bottom: 1.5rem;
   border-bottom: 1px solid var(--border);
-}
-
-.profile-section h2 {
-  font-size: 1.5rem;
-  margin-bottom: 0.25rem;
+  text-align: center;
 }
 
 .profile-section .subtitle {
-  color: var(--text-secondary);
-  font-size: 0.9rem;
+  color: var(--text);
+  font-size: 1.1rem;
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+}
+
+.profile-highlights {
+  font-size: 0.85rem;
   margin-bottom: 0.75rem;
 }
+
+.profile-highlights > span + span::before {
+  content: " · ";
+  color: var(--text-muted);
+}
+
+.highlight-neutral { color: var(--text-muted); }
+.highlight-topic { color: var(--tag-text); }
+.highlight-project { color: var(--project-tag-text); }
 
 .profile-section .bio {
   font-size: 0.9rem;
   color: var(--text-secondary);
+  margin-bottom: 0.5rem;
+}
+
+.profile-section .article-count {
+  font-size: 0.8rem;
+  color: var(--text-muted);
 }
 
 /* ---- Tag filter ---- */

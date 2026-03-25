@@ -192,14 +192,27 @@
 (defalias post-list-view
   "Home page: profile section + tag filter + post list."
   [{::keys [db _dispatch!] :as props}]
-  (let [{:keys [subtitle bio]} (:site db)]
+  (let [{:keys [title company company-url location bio years-experience highlights]} (:site db)
+        posts    (db/filtered-posts db)
+        total    (count (:posts db))
+        filtered (count posts)]
     [:div
      [:div.profile-section
-      [:p.subtitle subtitle]
-      [:p.bio bio]]
+      [:p.subtitle title " at " [:a {:href company-url :target "_blank"} company] " · " location]
+      [:p.profile-highlights
+       [:span.highlight-neutral (str years-experience " yrs experience")]
+       (for [{:keys [label type]} highlights]
+         [:span {:replicant/key label
+                 :class (case (keyword type) :project "highlight-project" :topic "highlight-topic" "highlight-neutral")}
+          label])]
+      [:p.bio bio]
+      [:p.article-count
+       (if (= filtered total)
+         (str filtered " articles")
+         (str filtered " of " total " articles"))]]
      (tag-bar props)
      [:ul.post-list
-      (for [post (db/filtered-posts db)]
+      (for [post posts]
         (post-card props post))]]))
 
 (defn toc
