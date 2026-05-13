@@ -133,10 +133,22 @@
 
 #?(:cljs
    (defn init-theme!
-     "Apply saved theme on load."
+     "Resolve and apply the initial theme.
+      Priority: saved choice in localStorage > OS prefers-color-scheme.
+      Also subscribes to live OS-theme changes for users who haven't picked one."
      []
-     (when (= (js/localStorage.getItem "theme") "dark")
-       (.setAttribute (.-body js/document) "data-theme" "dark"))))
+     (let [body          (.-body js/document)
+           saved         (js/localStorage.getItem "theme")
+           os-dark-mql   (.matchMedia js/window "(prefers-color-scheme: dark)")
+           prefers-dark? (.-matches os-dark-mql)
+           theme         (or saved (when prefers-dark? "dark"))]
+       (when theme
+         (.setAttribute body "data-theme" theme))
+       (.addEventListener os-dark-mql "change"
+                          (fn [^js e]
+                            (when-not (js/localStorage.getItem "theme")
+                              (.setAttribute body "data-theme"
+                                             (if (.-matches e) "dark" "light"))))))))
 
 ;;=============================================================================
 ;; Initialization

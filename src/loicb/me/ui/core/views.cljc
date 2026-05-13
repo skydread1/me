@@ -52,7 +52,11 @@
                                    depth (.-depth obj)
                                    plain (str/replace text #"<[^>]*>" "")
                                    id    (util/slugify plain)]
-                               (str "<h" depth " id=\"" id "\">" text "</h" depth ">")))}}))
+                               (if (#{2 3} depth)
+                                 (str "<h" depth " id=\"" id "\">"
+                                      "<a class=\"heading-anchor\" href=\"#" id "\">" text "</a>"
+                                      "</h" depth ">")
+                                 (str "<h" depth " id=\"" id "\">" text "</h" depth ">"))))}}))
        m)))
 
 (defn render-markdown
