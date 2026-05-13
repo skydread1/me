@@ -47,10 +47,11 @@ Instead of dispatching a single action keyword, views dispatch a map where each 
 |--------|-------|--------------|
 | `:db` | `(fn [db] db')` | Pure state update via `swap!` |
 | `:pull` | `:keyword` or `{:pattern ... :then ...}` | Named pull operation or inline spec |
-| `:nav` | `:keyword` | `pushState` URL navigation |
-| `:history` | `:push` | pushState from current state (flybot-site) |
+| `:nav` | `:keyword` | `pushState` URL navigation (playground) |
+| `:history` | any truthy | `pushState` derived from current db state (flybot-site) |
 | `:confirm` | `{...}` | Confirmation modal (flybot-site) |
 | `:toast` | `{...}` | Auto-dismissing notification (flybot-site) |
+| `:logout` | `"/url"` or `nil` | POST `/logout` then redirect, CSRF-safe (flybot-site) |
 | `:navigate` | `"/url"` | Hard browser redirect (flybot-site) |
 
 This composes naturally: a button click can update state, trigger an API call, and navigate, all in one map. No action registry, no multimethod. The effect map IS the action.

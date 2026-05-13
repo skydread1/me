@@ -155,7 +155,7 @@ Authorization is structural, not imperative. The API is a nested map where top-l
                       :users/roles roles})}}))))
 ```
 
-The `with-role` function returns the data map if the session has the required role, empty `{}` otherwise. When a guest pattern tries to access `:member`, pattern matching gets an empty map, no data leaks, no conditional logic in the handler.
+The `with-role` function returns the data map if the session has the required role, `{:error {:type :forbidden}}` otherwise. The `remote/` layer pre-walks variable paths over the raw data and trims the pattern at any error sentinel, producing a 403 for that branch without invoking the matcher.
 
 Each role sees a different **view** of the same underlying collections:
 
@@ -254,24 +254,7 @@ This keeps collections pure: they return data describing what happened. The HTTP
 
 ### Partial success on reads
 
-The `remote/` layer detects errors along variable paths during reads. When a `with-role` gate returns `{:error {:type :forbidden ...}}` for a missing role, the error flows through as inline data. A guest requesting `'{:guest {:posts ?all} :admin {:posts ?all}}` gets the guest data back alongside the forbidden error for `:admin`. One branch failing does not fail the whole request.
-
-The current model embeds errors inline in the response. For mutations, `:detect :error` maps them to HTTP status codes. For reads, errors are detected along the path before any mutation is attempted, so a forbidden role gate prevents writes without needing a separate sentinel.
-
-A planned improvement is to move toward GraphQL-style collected errors, where failed branches become `nil` and errors are gathered in a top-level array with path information:
-
-```clojure
-;; Current: errors inline in data
-{:status 200
- :body {all {:error {:type :forbidden ...}}}}
-
-;; Planned: GraphQL-style partial success
-{:status 200
- :body {data   {guest-posts [...], admin-posts nil}
-        errors [{:type :forbidden :path [:admin]}]}}
-```
-
-This follows the same approach as [GraphQL](https://graphql.org/learn/response/) and [Pathom3](https://pathom3.wsscode.com/docs/error-handling/) (attribute-errors in lenient mode). Alongside this, a planned `error-gate` function would replace plain error maps with a sentinel that implements `ILookup` (returns self, so pattern traversal keeps working), `Mutable` (returns the error for mutations), and `Wireable` (serializes as the error map). This would make the coarse authorization layer more robust for deeply nested patterns.
+`remote/` walks variable paths over the raw data before matching, trims the pattern at any `{:error ...}` it finds, then matches the trimmed pattern. A guest requesting `'{:guest {:posts ?all} :admin {:posts ?all}}` gets the guest bindings back, with the `:admin` denial collected in a top-level `:errors` array alongside the data — the same shape as [GraphQL](https://graphql.org/learn/response/) and [Pathom3](https://pathom3.wsscode.com/docs/error-handling/) (lenient mode). One contract to remember: the error must live in plain data — errors returned from inside `ILookup.valAt` are invisible to the detection walk and surface as a match failure.
 
 ## Lazy fields and on-demand computation
 
@@ -294,43 +277,7 @@ The `:slug` and `:post-count` fields hit the database only when the pattern actu
 
 ## Putting it together
 
-READ and CREATE on a blog post, showing how each layer handles the request:
-
-```mermaid
-sequenceDiagram
-    participant C as Client (SPA)
-    participant R as remote
-    participant Role as Role Layer
-    participant P as pattern
-    participant Coll as collection
-    participant DS as DataSource (Datahike)
-
-    Note over C,DS: READ - guest lists all posts
-    C->>R: POST /api '{:guest {:posts ?all}}
-    R->>Role: walk into :guest
-    Role-->>R: {:posts public-posts}
-    R->>P: match pattern against data
-    P->>Coll: seq(public-posts)
-    Coll->>DS: list-all
-    DS-->>Coll: [post1, post2, ...]
-    Coll-->>P: [stripped-post1, stripped-post2, ...]
-    Note over Coll,P: public-posts reify strips author email
-    R-->>C: {'all [{:post/id 1 ...} {:post/id 2 ...}]}
-
-    Note over C,DS: CREATE - member creates a post
-    C->>R: POST /api {:member {:posts {nil {:title "New"}}}}
-    R->>Role: walk into :member
-    Role-->>R: {:posts member-posts, :me ...}
-    R->>R: parse-mutation → nil key = CREATE
-    R->>Coll: mutate!(member-posts, nil, {:title "New"})
-    Note over Coll: wrap-mutable injects :post/author
-    Coll->>DS: create!({:title "New" :author user-id})
-    DS-->>R: {:post/id 42 :title "New" :created-at ...}
-    R-->>C: {'posts {:post/id 42 :title "New" ...}}
-    Note over C: merge entity into local state - no re-fetch
-```
-
-The key points:
+The two request shapes:
 
 - **Single endpoint** (`POST /api`). The pattern carries the intent: which role, which resource, what operation.
 - **Role layer is just data walking**. `remote` walks into `:guest` or `:member` and gets the data map (or `{}` if unauthorized). No middleware, no guards.

@@ -13,7 +13,7 @@ How I went from a personal Claude Code setup to a plugin marketplace for a small
 
 ## Context
 
-I lead a three-person engineering team. Our stack is primarily Clojure.
+I lead a small engineering team. Our stack is primarily Clojure.
 
 In late 2025, I started using Claude Code with a Max plan. It was good at general programming but struggled with our conventions. The code worked but did not look like our code.
 

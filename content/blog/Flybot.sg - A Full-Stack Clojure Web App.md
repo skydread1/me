@@ -59,7 +59,7 @@ The backend serves a Ring handler with the pull-based API at `/api`. The fronten
 | Frontend rendering | [Replicant](https://github.com/cjohansen/replicant) | Lightweight hiccup rendering with `defalias`, no framework overhead |
 | Frontend build | [shadow-cljs](https://github.com/thheller/shadow-cljs) | npm integration, hot reload, hashed release builds |
 | HTTP server | [http-kit](https://github.com/http-kit/http-kit) | Simple, performant Ring-compatible server |
-| Auth | [ring-oauth2](https://github.com/studer-l/ring-oauth2) | Standard Ring middleware for Google OAuth |
+| Auth | [oie](https://github.com/flybot-sg/oie) | Flybot OSS auth library: Google OAuth (JWT id-token), session + role-based authorization |
 | Validation | [Malli](https://github.com/metosin/malli) | Data-driven schema validation, shared between client and server |
 | Logging | [mulog](https://github.com/BrunoBonacci/mulog) | Structured event logging with pluggable publishers |
 | Container build | [jibbit](https://github.com/atomisthq/jibbit) | Builds OCI images directly from deps.edn, no Dockerfile |

@@ -242,9 +242,7 @@ Binary gate: you have the role or you don't. The entire subtree of collections i
          {:users users, :users/roles roles})
 ```
 
-A non-owner sending `'{:owner {:users ?all}}` hits the error map, not the collection. The `remote/` layer detects errors along variable paths, so the error flows through as inline data and prevents any mutation from being attempted.
-
-A planned improvement is an `error-gate` function that replaces the plain map with a `reify` implementing `ILookup` (returns self for any key, so deeply nested pattern traversal keeps working), `Mutable` (returns the error for mutations), and `Wireable` (serializes as the error map). This would be a good example of composing three protocols into a single anonymous sentinel object.
+A non-owner sending `'{:owner {:users ?all}}` hits the error map, not the collection. Before matching, `remote/` walks variable paths over the raw data and trims the pattern at any `{:error ...}` it finds, so the denial surfaces as a `:forbidden` without ever reaching the collection. A plain map is enough, no sentinel object required.
 
 ### Medium: `wrap-mutable` (per-entity mutation rules)
 
@@ -307,7 +305,7 @@ The pattern engine still calls `get` on it, so it works identically from the cal
 | Need | Tool |
 |------|------|
 | Full CRUD + enumeration + index validation | `defrecord` + `coll/collection` |
-| Read-only, keyword keys, flat values | `coll/lookup` |
+| Read-only, keyword keys, mix of cheap + lazy fields | `coll/lookup` |
 | Read-only, map keys, single query shape | Raw `reify` with `ILookup` + `Wireable` |
 
-Note: `coll/lookup` only supports keyword keys (`:email`, `:name`). For map keys like `{:post/id 3}`, use a raw `reify`.
+`coll/lookup` accepts `delay` values for expensive fields: `(coll/lookup {:id uid :slug (delay (db-slug conn uid))})`. Each delay fires at most once whether reached via `get` or `->wire`. For map keys like `{:post/id 3}`, use a raw `reify`.

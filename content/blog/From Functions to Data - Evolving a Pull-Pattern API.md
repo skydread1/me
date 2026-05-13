@@ -156,9 +156,9 @@ On the server, the data map is a structure of collections, not functions:
                                      :indexes #{#{:id}}})]
     (fn [ring-request]
       (let [session (:session ring-request)]
-        {:data   {:user  (when (:user session)
+        {:data   {:user  (with-role session :user
                            {:dashboards dashboards})
-                  :owner (when (:owner session)
+                  :owner (with-role session :owner
                            {:users users-collection
                             :roles roles-collection})}
          :schema {:user  {:dashboards [:vector Dashboard]}
@@ -256,13 +256,20 @@ The query object is the same in both cases. The difference is where it lives: in
 
 Old: `(with-role session :user (fn [] ...))` wraps a thunk. Authorization is a function that gates access to other functions.
 
-New: top-level keys in the API map are `nil` when the session lacks the role. The pattern simply gets `nil` for unauthorized paths. No function call, no wrapper.
+New: `with-role` returns plain data or an error sentinel at the role-gate position:
 
 ```clojure
+(defn- with-role [session role data]
+  (if (contains? (:roles session) role)
+    data
+    {:error {:type :forbidden}}))
+
 ;; Session has :user but not :owner
-{:data {:user  {:dashboards dashboards}   ;; present
-        :owner nil}}                       ;; nil: patterns against :owner return nothing
+{:data {:user  (with-role session :user  {:dashboards dashboards})
+        :owner (with-role session :owner {:users users-collection})}}
 ```
+
+The `remote/` layer walks variable paths over the raw data before matching, trims the pattern at any `{:error ...}` it finds, and returns a 403 for that branch without invoking the matcher.
 
 For finer-grained checks (ownership enforcement on mutations), `wrap-mutable` intercepts write operations:
 
@@ -338,7 +345,7 @@ The `remote` layer maps error types to HTTP status codes via a declarative confi
  :codes  {:forbidden 403 :not-found 404 :invalid-mutation 422}}
 ```
 
-This keeps collections pure (they return data describing what happened) while the transport layer decides how to represent it. The design is heading toward GraphQL-style partial responses, where one branch failing does not fail the whole pattern. A request for `{:user ?data :admin ?admin-stuff}` should return `:user` data even if `:admin` is forbidden, with errors collected in a top-level array alongside the data.
+This keeps collections pure (they return data describing what happened) while the transport layer decides how to represent it. Reads support partial success: a request for `{:user ?data :admin ?admin-stuff}` returns `:user` data even when `:admin` is forbidden, with the error reported alongside the successful bindings.
 
 ## Conclusion
 
