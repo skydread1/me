@@ -1,9 +1,10 @@
-(ns loicb.me.ui.core.db
+(ns ^:dev/always loicb.me.ui.core.db
   "Application db — pure db->db updater functions.
 
    State lives under :app/me in the app-db atom.
-   All posts are embedded at compile time via the posts-data macro.
-   No server communication needed."
+   All posts are embedded at compile time via the posts-data macro;
+   ^:dev/always forces shadow to recompile every build so new/edited
+   markdown in content/blog/ is picked up without a cache bust."
   (:require [clojure.string :as str]
             [loicb.me.util :as util])
   #?(:cljs (:require-macros [loicb.me.build.md :as md]

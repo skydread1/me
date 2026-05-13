@@ -176,11 +176,9 @@
            (map str)
            sort))))
 
-(def load-posts
-  "All blog posts loaded at macro-expansion time."
-  (mapv load-post (list-blog-files)))
-
 (defmacro posts-data
-  "Embed blog post data in the CLJS bundle at compile time."
+  "Embed blog post data in the CLJS bundle at compile time.
+   Reads the filesystem at every macro expansion so new posts
+   appear after a `db.cljc` recompile without restarting the JVM."
   []
-  `~load-posts)
+  (mapv load-post (list-blog-files)))
