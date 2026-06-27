@@ -87,6 +87,7 @@
            (doseq [[src dest] [["resources/public/css" "/css"]
                                ["resources/public/js" "/js"]
                                ["resources/public/assets" "/assets"]
+                               ["resources/public/vendor" "/vendor"]
                                ["resources/public/blog/rss" "/blog/rss"]]]
              (when (fs/exists? src)
                (fs/copy-tree src (str dist-dir dest))))

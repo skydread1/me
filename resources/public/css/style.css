@@ -477,6 +477,42 @@ a:hover { color: var(--accent-hover); text-decoration: underline; }
   line-height: 1.5;
 }
 
+/* Mermaid diagrams: not code blocks, so drop the code styling and center them. */
+.markdown-content pre.mermaid {
+  background: none;
+  border: none;
+  padding: 0;
+  margin: 1.5rem 0;
+  overflow-x: auto;
+  text-align: center;
+  line-height: normal;
+}
+
+/* Hide the raw definition until mermaid swaps it for an SVG (textContent stays
+   readable to mermaid regardless of these styles), avoiding a flash of source. */
+.markdown-content pre.mermaid:not([data-processed="true"]) {
+  color: transparent;
+  font-size: 0;
+}
+
+/* Fallback: if the mermaid bundle fails to load, reveal the raw definition as a
+   normal code block instead of a blank gap. Placed after the hide rule so it wins. */
+.markdown-content pre.mermaid.mermaid-failed {
+  color: var(--code-text);
+  font-size: 0.85rem;
+  line-height: 1.5;
+  text-align: left;
+  background: var(--code-bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 1rem;
+}
+
+.markdown-content pre.mermaid svg {
+  max-width: 100%;
+  height: auto;
+}
+
 .markdown-content blockquote {
   border-left: 3px solid var(--accent);
   padding-left: 1rem;

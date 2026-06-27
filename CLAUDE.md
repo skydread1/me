@@ -54,7 +54,7 @@ Filtering uses AND logic with a set of active tags (`:tag-filters #{}`). `toggle
 
 ### Content pipeline
 
-Blog posts live in `content/blog/` as markdown with YAML frontmatter. Media lives in `content/media/`. The `posts-data` macro in `md.clj` loads posts at compile time: parses frontmatter (clj-yaml), extracts TLDR, validates with Malli, and embeds in the JS bundle. Markdown is rendered at runtime in the browser via marked + highlight.js.
+Blog posts live in `content/blog/` as markdown with YAML frontmatter. Media lives in `content/media/`. The `posts-data` macro in `md.clj` loads posts at compile time: parses frontmatter (clj-yaml), extracts TLDR, validates with Malli, and embeds in the JS bundle. Markdown is rendered at runtime in the browser (see `ui/core/markdown.cljc`) via marked + highlight.js, with `mermaid` code blocks rendered as diagrams. mermaid is self-hosted (`resources/public/vendor/mermaid.min.js`, copied to `dist/` by `bb dist`) and loaded lazily via a `<script>` tag only on pages that contain a diagram, since shadow-cljs cannot bundle its ESM. Diagrams follow the live light/dark theme via a `MutationObserver` on `data-theme`.
 
 #### Importing from Obsidian
 
@@ -101,6 +101,7 @@ src/loicb/me/
     └── core/
         ├── db.cljc           # Pure db updaters, initial-db, TOC, faceted filtering
         ├── history.cljc      # URL routing (state <-> path, multi-tag URLs)
+        ├── markdown.cljc     # Runtime markdown rendering (marked + highlight.js + mermaid)
         └── views.cljc        # Replicant defalias components
 dev/
 └── user.clj                  # REPL helpers: start!, stop!, cljs-repl!

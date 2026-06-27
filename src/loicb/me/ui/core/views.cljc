@@ -2,71 +2,11 @@
   "UI components using Replicant defalias.
 
    Two views: home (post list with tag filter) and detail (full post).
-   Markdown rendered at runtime via marked + highlight.js.
-   Components receive {::db state ::dispatch! fn} as namespaced props."
-  (:require [clojure.string :as str]
-            [replicant.alias :refer [defalias]]
+   Components receive {::db state ::dispatch! fn} as namespaced props.
+   Markdown content is rendered by loicb.me.ui.core.markdown."
+  (:require [replicant.alias :refer [defalias]]
             [loicb.me.ui.core.db :as db]
-            [loicb.me.util :as util]
-            #?(:cljs ["marked" :refer [Marked]])
-            #?(:cljs ["highlight.js/lib/core" :as hljs])
-            #?(:cljs ["highlight.js/lib/languages/clojure" :as hljs-clojure])
-            #?(:cljs ["highlight.js/lib/languages/javascript" :as hljs-js])
-            #?(:cljs ["highlight.js/lib/languages/bash" :as hljs-bash])
-            #?(:cljs ["highlight.js/lib/languages/json" :as hljs-json])
-            #?(:cljs ["highlight.js/lib/languages/xml" :as hljs-xml])
-            #?(:cljs ["highlight.js/lib/languages/yaml" :as hljs-yaml])
-            #?(:cljs ["highlight.js/lib/languages/css" :as hljs-css])
-            #?(:cljs ["highlight.js/lib/languages/markdown" :as hljs-md])))
-
-;;=============================================================================
-;; Markdown rendering (CLJS only)
-;;=============================================================================
-
-#?(:cljs
-   (do
-     (hljs/registerLanguage "clojure" hljs-clojure)
-     (hljs/registerLanguage "javascript" hljs-js)
-     (hljs/registerLanguage "bash" hljs-bash)
-     (hljs/registerLanguage "json" hljs-json)
-     (hljs/registerLanguage "xml" hljs-xml)
-     (hljs/registerLanguage "html" hljs-xml)
-     (hljs/registerLanguage "yaml" hljs-yaml)
-     (hljs/registerLanguage "css" hljs-css)
-     (hljs/registerLanguage "markdown" hljs-md)))
-
-#?(:cljs
-   (def marked-instance
-     (let [m (Marked.)]
-       (.use m (clj->js
-                {:renderer
-                 {:code (fn [obj]
-                          (let [code (.-text obj)
-                                lang (.-lang obj)
-                                highlighted (if (and lang (hljs/getLanguage lang))
-                                              (.-value (hljs/highlight code #js {:language lang}))
-                                              (.-value (hljs/highlightAuto code)))]
-                            (str "<pre><code class=\"hljs\">" highlighted "</code></pre>")))
-                  :heading (fn [obj]
-                             (let [text  (.-text obj)
-                                   depth (.-depth obj)
-                                   plain (str/replace text #"<[^>]*>" "")
-                                   id    (util/slugify plain)]
-                               (if (#{2 3} depth)
-                                 (str "<h" depth " id=\"" id "\">"
-                                      "<a class=\"heading-anchor\" href=\"#" id "\">" text "</a>"
-                                      "</h" depth ">")
-                                 (str "<h" depth " id=\"" id "\">" text "</h" depth ">"))))}}))
-       m)))
-
-(defn render-markdown
-  "Render markdown string to HTML hiccup.
-   On CLJ: returns raw text in a pre block (for RCT testing).
-   On CLJS: uses marked + highlight.js."
-  [content]
-  (when (seq content)
-    #?(:clj  [:pre content]
-       :cljs [:div {:innerHTML (.parse marked-instance content)}])))
+            [loicb.me.ui.core.markdown :as markdown]))
 
 ;;=============================================================================
 ;; Components
@@ -191,7 +131,7 @@
                                                      :history :push})}}
             tag])])]
      (when (seq md-content-short)
-       [:div.post-tldr (render-markdown md-content-short)])]))
+       [:div.post-tldr (markdown/render-markdown md-content-short)])]))
 
 (defalias post-list-view
   "Home page: profile section + tag filter + post list."
@@ -262,7 +202,7 @@
              repo-name])])
        (toc headings)
        [:div.markdown-content {:replicant/key slug}
-        (render-markdown md-content)]
+        (markdown/render-markdown md-content)]
        (when (> (count headings) 1)
          [:div.back-to-top
           [:a {:href "#"} "Back to top"]])])))
