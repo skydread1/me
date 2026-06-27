@@ -57,7 +57,7 @@ I used [test.check](https://github.com/clojure/test.check) to build generators t
 
 ## CLR portability
 
-All game libraries are written as `.cljc` with reader conditionals for the few JVM/CLR divergences. They compile to .NET assemblies via the [MAGIC](https://github.com/nasser/magic) compiler and run inside Unity for the game frontends. The compilation and packaging pipeline is covered in [MAGIC Compiler and Nostrand Integration](https://www.loicb.dev/blog/magic-compiler-and-nostrand-integration) and [Porting Clojure Libraries to the CLR with MAGIC](https://www.loicb.dev/blog/porting-clojure-libraries-to-the-clr-with-magic).
+All game libraries are written as `.cljc` with reader conditionals for the few JVM/CLR divergences. They compile to .NET assemblies via the [MAGIC](https://github.com/flybot-sg/magic) compiler and run inside Unity for the game frontends. The compilation and packaging pipeline is covered in [MAGIC Compiler and Nostrand Integration](https://www.loicb.dev/blog/magic-compiler-and-nostrand-integration) and [Making Magic stable](https://www.loicb.dev/blog/making-magic-stable).
 
 ## Adoption
 

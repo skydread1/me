@@ -23,7 +23,7 @@ This is a universal problem. It affects anyone using a service that exposes a DN
 
 ### GoDaddy forwarding
 
-GoDaddy (my registrar) offers built-in domain forwarding. However, as of 2018, it does not forward paths:
+GoDaddy (the registrar flybot uses) offers built-in domain forwarding. However, as of 2018, it does not forward paths:
 
 - `flybot.sg` → `www.flybot.sg` (works)
 - `flybot.sg/blog` → `www.flybot.sg/blog` (404)

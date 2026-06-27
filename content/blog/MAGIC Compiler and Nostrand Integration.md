@@ -17,6 +17,10 @@ rss-feeds:
 
 Flybot uses Unity for card game frontends and Clojure for backend logic. To share code between the two without rewriting in C#, we needed a compiler that produces .NET assemblies compatible with Unity's IL2CPP runtime. I collaborated with [Ramsey Nasser](https://github.com/nasser), the author of the [MAGIC](https://github.com/nasser/magic) compiler, to stabilize and optimize the toolchain. My main contributions were on the tooling side: NuGet packaging, private repo support, a CI pipeline, and the suggestion to strip compilation out of Magic.Unity and route everything through Nostrand. The result is a three-command workflow that frontend developers have been using in production for years.
 
+## Update (2026)
+
+> *This is the 2021 account of the original collaboration with Ramsey. The toolchain has changed a lot since: the six repos are now one [monorepo](https://github.com/flybot-sg/magic), and `project.edn` and NuGet packaging are gone. I pick the story up in [Making Magic stable](https://www.loicb.dev/blog/making-magic-stable). I am keeping this post as the record of where it started.*
+
 ## Context
 
 Flybot builds card games. The backend (game rules, state machines, scoring) is written in Clojure. The frontend is Unity. For a long time, any logic shared between the two had to be maintained twice: once in Clojure, once in C#. We wanted to eliminate that duplication, and we were also exploring an Entity Component System architecture on the Unity side where calling Clojure libraries directly would fit naturally into a data-oriented stack.
@@ -25,7 +29,7 @@ The shared libraries are written as `.cljc` files with `:clr` reader conditional
 
 The standard path for running Clojure on .NET is [clojure-clr](https://github.com/clojure/clojure-clr), but it relies on the [Dynamic Language Runtime](https://en.wikipedia.org/wiki/Dynamic_Language_Runtime) (DLR) to optimize dynamic call sites. The DLR generates code at runtime, which is prohibited by [IL2CPP](https://docs.unity3d.com/Manual/IL2CPP.html), Unity's ahead-of-time compilation pipeline for mobile builds. Any assemblies that depend on runtime code generation simply cannot run on iOS.
 
-[MAGIC](https://github.com/nasser/magic) (Magic Is A Clojure Generator), created by [Ramsey Nasser](https://github.com/nasser), takes a different approach. It is a bootstrapped compiler written in Clojure that produces .NET assemblies without any DLR dependency. The resulting DLLs can run inside Unity on both desktop and mobile via IL2CPP.
+[MAGIC](https://github.com/nasser/magic) (Morgan And Grand Iron Clojure), created by [Ramsey Nasser](https://github.com/nasser), takes a different approach. It is a bootstrapped compiler written in Clojure that produces .NET assemblies without any DLR dependency. The resulting DLLs can run inside Unity on both desktop and mobile via IL2CPP.
 
 The problem was that MAGIC was not yet stable enough to compile our card game libraries. Compilation would fail on various Clojure constructs we relied on. That is what led to a close collaboration with Ramsey.
 
@@ -34,7 +38,7 @@ The problem was that MAGIC was not yet stable enough to compile our card game li
 Four open-source repos make up the toolchain:
 
 - [nasser/magic](https://github.com/nasser/magic): the Clojure-to-.NET compiler itself, bootstrapped (compiled by its own previous version)
-- [nasser/nostrand](https://github.com/nasser/nostrand): dependency manager and task runner for MAGIC. Projects declare dependencies in a `project.edn` (MAGIC predates `deps.edn`, so Nostrand has its own format)
+- [nasser/nostrand](https://github.com/nasser/nostrand): dependency manager and task runner for MAGIC. Projects declared dependencies in a `project.edn` (MAGIC predates `deps.edn`, so Nostrand had its own format)
 - [nasser/Magic.Unity](https://github.com/nasser/Magic.Unity): runtime for loading MAGIC-compiled Clojure inside Unity
 - [magic-clojure/magic](https://github.com/magic-clojure/magic): integration repo that builds all of the above with a single `dotnet build`
 
@@ -64,7 +68,7 @@ nos dotnet/run-tests    # run all tests on the CLR
 nos dotnet/nuget-push   # pack and push to GitHub/GitLab registry
 ```
 
-The NuGet workflow was used initially to package compiled DLLs for consumption in Unity via `nuget restore`. Since then, the team has moved to pulling Clojure libraries as **git submodules** directly into the Unity project and compiling everything from source with a single `nos dotnet/build`. This simplified the pipeline by removing the NuGet packaging step entirely. The core two-command workflow remains: `nos dotnet/build` to compile and `nos dotnet/run-tests` to verify on the CLR.
+The NuGet workflow was used initially to package compiled DLLs for consumption in Unity via `nuget restore`. The team later moved away from it, first to git submodules compiled from source, and eventually to the UPM package and `deps.edn` workflow described in [Making Magic stable](https://www.loicb.dev/blog/making-magic-stable). The core idea held throughout: compile with `nos dotnet/build`, verify on the CLR with `nos dotnet/run-tests`.
 
 ### GitHub Action for bootstrapping
 

@@ -28,7 +28,7 @@ MCTS builds a search tree by repeatedly **selecting**, **expanding**, **simulati
 
 In practice, card games have a **branching factor** problem. At the start of a Big Two round with 13 cards in hand, the number of possible plays is large. With `{:nb-rollouts 10 :budget 30}` (10 simulations per state, 30 tree-growth iterations), the first move took over 40 seconds in Clojure. And those parameters are not even high enough to guarantee good play.
 
-After compilation to .NET via [MAGIC](https://github.com/nasser/magic) for Unity, performance dropped further. MCTS was unusable on the client, so the frontend games use domain-knowledge heuristics exclusively.
+After compilation to .NET via [MAGIC](https://github.com/flybot-sg/magic) for Unity, performance dropped further. MCTS was unusable on the client, so the frontend games use domain-knowledge heuristics exclusively.
 
 ## Domain knowledge
 
