@@ -38,6 +38,20 @@ The UI is mode-agnostic. Views dispatch `{:pull :pattern}` and the effect system
 
 **Remote** connects to a live server and sends the same Transit-encoded patterns that [flybot.sg](https://www.flybot.sg) uses for its own frontend. This is useful for testing patterns against real data or debugging API behavior. Remote mode also adds schema-aware autocomplete tooltips from the server's Malli schema.
 
+A dispatched `:pull` resolves to a data spec, then runs through the executor for the current mode. The dispatch mechanics behind it are in [Building a ClojureScript SPA with Replicant and dispatch-of](https://www.loicb.dev/blog/building-a-clojurescript-spa-with-replicant-and-dispatch-of); the diagram below traces the path:
+
+```mermaid
+flowchart TD
+    pull[":pull"] --> rp["resolve-pull → spec<br/>(pure, .cljc)"]
+    rp --> shape{"spec shape"}
+    shape -->|":error"| err["dispatch :db set-error"]
+    shape -->|":fetch"| fetch["HTTP GET /_schema"]
+    shape -->|":pattern"| exec["make-executor"]
+    exec --> mode{":mode"}
+    mode -->|":sandbox"| sci["SCI eval in-browser<br/>(queueMicrotask)"]
+    mode -->|":remote"| http["HTTP POST /api"]
+```
+
 ## Why SCI
 
 Pull patterns support `:when` constraints with predicate functions:

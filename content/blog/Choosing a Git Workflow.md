@@ -22,8 +22,13 @@ In this article, I will explain how the main workflows work and which one to use
 
 ### Timeline Example
 
-![Trunked Based Dev](/assets/media/git-workflows/trunk-based-dev.png)
-
+```mermaid
+sequenceDiagram
+    actor Dev
+    participant main as ★ main
+    Dev->>main: push Feature A
+    Dev->>main: push Feature B
+```
 ### No Branching
 
 That’s it. You have your `main` branch and everybody pushes to it. Some might call it madness others would say that excellent CI/CD setup does not require branching.
@@ -42,8 +47,14 @@ Anyway, don’t use trunk-based dev unless you know exactly what you are doing a
 
 ### Timeline Example
 
-![Feature Branching](/assets/media/git-workflows/feature-branching.png)
-
+```mermaid
+sequenceDiagram
+    participant fa as feature-a
+    participant fb as feature-b
+    participant main as ★ main
+    fa->>main: Feature A (PR reviewed)
+    fb->>main: Feature B (PR reviewed)
+```
 ### Pull Requests
 
 Everybody should be familiar with that one. Bob pulls a branch from main, implements the feature and pushes that feature branch to remote. Bob then opens a PR/MR (Github call it Pull Request, Gitlab call it Merge Request) and Alice reviews Bob's code before merging to `main`.
@@ -89,8 +100,21 @@ Yes. Actually, pretty much everybody uses feature branches.
 
 ### Timeline Example
 
-![Forking](/assets/media/git-workflows/forking.png)
-
+```mermaid
+sequenceDiagram
+    box Origin (your repo)
+    participant omain as ★ origin/main
+    participant fb as feature-b
+    end
+    box Upstream (their repo)
+    participant fa as feature-a
+    participant umain as ★ upstream/main
+    end
+    fa->>umain: Feature A
+    umain->>omain: Sync
+    fb->>umain: Feature B (PR from fork)
+    umain->>omain: Sync
+```
 ### Open Source Contributions
 
 Forking is the method used for open-source project contributions. In short, you could **clone** the repo locally but you won’t be able to push any branches because the author won't allow you. Just imagine if anybody could freely push branches to your repo! So the trick is to **fork** (personal copy on a version control platform) to your own GitHub account. Then you clone that repository instead and from there. The original Github repo is called the `upstream` and your own copy of the Github repo is called the `origin`.
@@ -105,8 +129,29 @@ Some open-source authors might push directly to their `main` branch while accept
 
 ### Timeline Example
 
-![Release Branching](/assets/media/git-workflows/release-branching.png)
-
+```mermaid
+sequenceDiagram
+    participant fa as feature-a
+    participant fb as feature-b
+    participant fc as feature-c
+    participant fd as feature-d
+    participant r10 as 🚀 release-1.0
+    participant r11 as 🚀 release-1.1
+    participant main as ★ main
+    participant hf as 🚀 release-1.0.1
+    fa->>r10: Feature A
+    fb->>r10: Feature B
+    r10->>main: 1.0.0
+    Note over main: 🔴 Prod bug
+    main->>hf: branch hotfix
+    hf->>main: Release 1.0.1
+    Note over main: 🟢 Prod fix (v1.0.1)
+    main->>r10: Sync (1.0.1)
+    fc->>r11: Feature C
+    fd->>r11: Feature D
+    main->>r11: Sync (1.0.1)
+    r11->>main: 1.1.1
+```
 ### It’s getting ugly
 
 Indeed, some projects might have multiple versions deployed and accessible by clients at the same time. The common example would be the need to still support old products or old API versions.
@@ -127,7 +172,34 @@ If you don’t need to support multiple releases at once, no, don’t use it. Id
 
 ### Timeline Example
 
-![GitFlow](/assets/media/git-workflows/gitflow.png)
+```mermaid
+sequenceDiagram
+    participant fa as feature-a
+    participant fb as feature-b
+    participant fc as feature-c
+    participant develop as 🌿 develop
+    participant r10 as 🚀 release-1.0
+    participant r11 as 🚀 release-1.1
+    participant main as ★ main
+    participant hf as 🚀 release-1.0.1
+    fa->>develop: Feature A
+    fb->>develop: Feature B
+    develop->>r10: 1.0.0-RC
+    Note over r10: prepare release
+    r10->>main: 1.0.0
+    develop->>r11: 1.1.0-RC
+    Note over main: 🔴 Prod bug
+    main->>hf: branch hotfix
+    hf->>main: ⚔️ Release 1.0.1
+    Note over main: 🟢 Prod fix (v1.0.1)
+    main->>develop: ⚔️ Sync (1.0.1)
+    main->>r10: ⚔️ Sync (1.0.1)
+    main->>r11: ⚔️ Sync (1.0.1)
+    develop->>fc: ⚔️ Sync (1.0.1)
+    fc->>develop: Feature C
+    develop->>r11: 1.1.1-RC
+    r11->>main: 1.1.1
+```
 
 ### Fatality
 
@@ -163,8 +235,24 @@ For legacy big projects, it might still be in use or necessary but I personally 
 
 ### Timeline Example
 
-![Feature Branching on Develop](/assets/media/git-workflows/feature-branching-on-develop.png)
-
+```mermaid
+sequenceDiagram
+    participant fa as feature-a
+    participant fb as feature-b
+    participant fc as feature-c
+    participant develop as 🌿 develop
+    participant main as ★ main
+    participant hf as 🚀 release-1.0.1
+    fa->>develop: Feature A
+    develop->>main: 1.0.0
+    Note over main: 🔴 Prod bug
+    main->>hf: branch hotfix
+    hf->>main: Release 1.0.1
+    Note over main: 🟢 Prod fix (v1.0.1)
+    main->>develop: Sync (1.0.1)
+    fb->>develop: Feature B
+    fc->>develop: Feature C
+```
 ### Develop branch
 
 The GitFlow aspect that most people still use is the `develop` branch. All the feature branches are merged to `develop` instead of `main`. Once `develop` is deemed ready for release, it is merged to `main`.
@@ -188,8 +276,29 @@ Yes. It is simple yet efficient.
 
 ### Timeline Example
 
-![Release Candidate Workflow](/assets/media/git-workflows/RC-workflow.png)
-
+```mermaid
+sequenceDiagram
+    participant fa as feature-a
+    participant fb as feature-b
+    participant fc as feature-c
+    participant develop as 🌿 develop
+    participant main as ★ main
+    participant rc as RC-fix
+    participant hf as hotfix
+    fa->>develop: Feature A
+    develop->>main: v1.0.0-RC1
+    Note over main: 🔴 staging: RC1 fails
+    main->>rc: branch RC fix
+    rc->>main: v1.0.0-RC2
+    Note over main: 🟢 staging: RC2 passes → tag v1.0.0
+    fb->>develop: Feature B
+    Note over main: 🔴 prod: bug found
+    main->>hf: branch hotfix
+    hf->>main: v1.0.1
+    Note over main: 🟢 prod: fixed
+    main->>develop: Sync (1.0.1)
+    fc->>develop: Feature C
+```
 It is very similar to **Feature Branching to Develop**. The only difference is that when `develop` is merged to `main` it creates a **Release Candidate** (RC) to be tested in a test/staging environment. If an issue in the test environment arises, a hotfix is done and we have a new RC (RC2 in this case). Once everything is ok in the test env, we have a stable release (we just tag a branch basically).
 
 The advantage of this strategy is that `main` is the line of truth for both test and prod env. `main` contains the RC and stable versions which is great for reporting what went wrong in the test cluster and what is stable in prod.

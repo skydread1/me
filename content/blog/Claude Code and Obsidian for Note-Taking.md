@@ -10,63 +10,50 @@ rss-feeds:
 ---
 ## TLDR
 
-How I use Claude Code as the primary interface for an Obsidian vault, capturing technical knowledge mid-session with full context, retrieving past notes to inform current work, and keeping vault conventions consistent through a custom plugin.
+How I use Claude Code as the main interface to an Obsidian vault: capturing well-linked notes without leaving the session, while the context is still live, then generating team sprint reports and blog articles from those same notes. Nested `CLAUDE.md` files give each directory (public, company, private) its own rulebook, so every output comes out in the right style.
 
-## Context
+## The problem
 
-Note-taking during development has a context problem. You hit something worth documenting (a debugging insight, a design tradeoff, an API gotcha) and the options are: switch to your notes app and try to recreate the context manually, or lose it entirely.
+Storing notes is a solved problem. [Obsidian](https://obsidian.md) is local-first, portable (plain markdown at the end of the day), and links notes to each other with `wikilink`s. I keep two Obsidian vaults, one personal and one for technical work; this article is only about the technical one. It holds everything work-related: technical notes, public blog drafts, company docs, private work notes. Git gives me version history, Obsidian Sync handles devices, and [Restic](https://restic.net) runs a weekly backup to [Backblaze B2](https://www.backblaze.com/cloud-storage).
 
-I use [Obsidian](https://obsidian.md) as my knowledge base. It stores everything: technical notes, blog article drafts, work documentation, email templates. The vault is version-controlled with git, synced across devices with Obsidian Sync, and backed up weekly with Restic to Backblaze B2. I maintain two vaults: one for personal life, one for development. Obsidian's mobile app makes it easy to switch between them, and I use a `Temp.md` scratch pad to dump ideas on the go, even from my phone.
-
-The pairing with Claude Code was obvious from the start. Claude already has the session context: what I just debugged, what tradeoff I just evaluated, what code I just wrote. Instead of context-switching to Obsidian and summarizing from memory, I just tell Claude to write the note directly.
+What is not solved is the capture. Turning what just happened into a well-formed, well-linked note takes real time, and that is time consuming. [Claude Code](https://docs.claude.com/en/docs/claude-code) already holds the session context: what I just debugged, which tradeoff I weighed, what code I wrote. So instead of writing it up by hand afterwards, I tell it to write the note in place, while the details are still there, and the note is written in seconds.
 
 ## The setup
 
-The integration requires three pieces of configuration, each at a different scope.
+The config wires Claude Code to the vault; the conventions themselves live in `CLAUDE.md` files inside the vault (more on those below). Three files do the wiring, and the diagram shows the path a note takes from a request to a formatted file.
 
-### 1. Vault conventions file (`CLAUDE.md` in the vault)
+```mermaid
+flowchart TD
+    req["'write a note...'<br/>in any session"] --> skill["note skill fires"]
+    skill -->|reads| conv["vault CLAUDE.md<br/>(conventions)"]
+    conv --> write["note written<br/>in the right format"]
+    write --> vault[("Obsidian vault")]
+    mkt["personal marketplace<br/>(private GitHub)"] -. installs the skill .-> skill
+    glob["~/.claude/CLAUDE.md<br/>(says: read the conventions first)"] -.-> conv
+    set["settings.json: additionalDirectories<br/>(file access only)"] -. reach the vault .-> vault
+```
 
-The vault's `CLAUDE.md` defines the rules: frontmatter format, tag taxonomy, wiki link conventions, directory structure. This file lives at the vault root and is checked into git.
+**1. Vault conventions (`CLAUDE.md` at the vault root).** This is the base rulebook: frontmatter format, tag taxonomy, wiki link style, directory layout. It is checked into git, so the vault owns its own rules.
 
 ```markdown
-# Dev Notes Vault
-
-## Note Conventions
-
-### Frontmatter
-Every note requires:
-tags:
-  - primary-tag
-  - secondary-tag
-date: YYYY-MM-DD
-
 ### Key Rules
-- No H1 headers (Obsidian uses filename as title)
+- No H1 headers (Obsidian uses the filename as the title)
 - Wiki links: [[Note Name]] for internal references
-- Place technical notes in Notes/
-- Place blog drafts in Articles/blog/
+- Technical notes go in Notes/, blog drafts in Articles/blog/
 ```
 
-The tag taxonomy is part of this file. It evolves with the vault, Claude adds new tags when it judges them relevant and updates the taxonomy accordingly. I do not maintain the tags manually.
+The tag taxonomy lives here too. Claude adds a tag when it judges one relevant and updates the taxonomy to match, so I do not curate tags by hand.
 
-### 2. Global instructions (`~/.claude/CLAUDE.md`)
-
-This file tells Claude Code where the vault is and to read the conventions before writing:
+**2. Global pointer (`~/.claude/CLAUDE.md`).** This is my user-level file, loaded in every session on the machine. It is a two-line pointer that tells Claude where the vault is and to read the root conventions before writing:
 
 ```markdown
-# Dev Notes Vault
-
-When asked to create a note or document learnings, write to:
-`/path/to/dev-notes/Notes/`
-
-Read `/path/to/dev-notes/CLAUDE.md` for note conventions before writing.
+When asked to create a note, write to `/path/to/dev-notes/Notes/`.
+Read `/path/to/dev-notes/CLAUDE.md` for conventions before writing.
 ```
 
-This is a two-line pointer. The conventions live in the vault, not in the global config. This means the vault is the single source of truth for its own rules.
+That explicit "read the conventions first" matters: from a session running in some other project, this pointer is what pulls the vault's rules into context.
 
-### 3. Additional directories (`~/.claude/settings.json`)
-
-Claude Code needs file access to the vault directory:
+**3. Directory access (`~/.claude/settings.json`).** `additionalDirectories` grants file access to the vault from any session, wherever it launched:
 
 ```json
 {
@@ -74,47 +61,63 @@ Claude Code needs file access to the vault directory:
 }
 ```
 
-This grants any Claude Code session, regardless of which project it is running in, read and write access to the vault. A session debugging a web app can write a note. A session reviewing a Kafka integration can reference a previous note on consumer group rebalancing.
+## A CLAUDE.md per scope
 
-## Writing notes mid-session
+This one technical vault holds content for three different audiences, and each has different output rules and a different privacy level:
 
-The typical flow: I am deep in a session (debugging a deployment, designing a data model, refactoring a module) and something clicks. A pattern worth remembering, a gotcha that cost me time, a decision with non-obvious reasoning.
+- **public**: my blog, deployed to the web. No secrets, no client names.
+- **company**: docs pushed to the company Notion. Different house style.
+- **private**: technical notes and sensitive work content that never leaves the vault.
 
-I say something like: "write a note about what we just figured out with the S3 lifecycle policies" or "capture this Rama partitioning insight."
+A single rulebook cannot serve all three. So the vault uses **nested `CLAUDE.md` files**. When I work inside the vault, Claude Code reads the root `CLAUDE.md` and loads a subdirectory's `CLAUDE.md` on demand when it touches a file there. The two combine, the nested one layering its rules on top of the root, so a file is governed by exactly the rules of the place it lives.
 
-Claude has the full session context. It knows:
+```mermaid
+flowchart TD
+    root["root CLAUDE.md<br/>base conventions + privacy model"] --> eff["rules Claude applies<br/>to this file"]
+    dir["directory CLAUDE.md<br/>(company, reports, ...)"] --> eff
+    eff --> out["output formatted<br/>for that directory's scope"]
+```
 
-- What problem I was solving
-- What approaches I tried and rejected
-- What code I wrote
-- What error messages I hit
-- What the working solution looks like
+Two directories carry their own `CLAUDE.md` today; everything else inherits the root. The table shows the split.
 
-The resulting note is more precise than what I would write manually. When I switch to Obsidian to write notes by hand, I inevitably lose details. I compress the debugging journey into a vague summary, forget which error message led to the insight, skip the code example that made it click.
+| Area              | Scope                          | Own `CLAUDE.md`? | What its rules enforce                                      |
+| ----------------- | ------------------------------ | ---------------- | ----------------------------------------------------------- |
+| `Notes/`          | Private, Claude-managed        | root only        | frontmatter, tags, wiki links, no H1                        |
+| `Articles/blog/`  | Public (my blog)               | root only        | `## TLDR` first, `## Internal refs` last, no secrets        |
+| `Work/blog/`      | Public (company blog)          | root only        | "we" voice, no internal references                          |
+| `Work/Notion/`    | Company (Notion)               | yes              | Notion conventions: no wiki links, no TLDR, copy-paste-ready |
+| `Work/private/`   | Private, off-limits to Claude  | n/a              | Claude never reads or writes it                             |
+| `sprint-reports/` | Team                           | yes              | git-driven report-generation workflow                       |
 
-Claude does not lose those details. The note it produces includes the exact code snippet, the specific error, the reasoning chain. And it formats everything according to vault conventions: proper frontmatter, wiki links to related notes, the right tags.
+Note the two private tiers. `Notes/` is private in the sense that it never leaves the vault, but Claude reads and writes it freely. `Work/private/` (HR matters, infra config, anything sensitive) is private in a stronger sense: Claude is told never to open it at all.
 
-### When I don't write notes
+The company `CLAUDE.md` is the clearest example of a scoped rulebook. That content is synced with the company's Notion, which follows Notion's conventions rather than Obsidian's: Notion does not understand `[[wiki links]]` or my blog's `## TLDR`. So the directory's rules strip both, demand copy-paste-ready markdown, and document a set of small [Babashka](https://babashka.org) tasks that push and pull pages through the Notion MCP server (the bridge that lets Claude read and write Notion). The `sprint-reports/` directory goes further: its `CLAUDE.md` is not a format guide at all but a workflow that reads git history across repos and drafts a bi-weekly summary.
 
-Not every session produces a note. If I am doing routine work (fixing a typo, updating a dependency, running a deployment I have done before), there is nothing to capture. The bar is: would I want to find this information in six months?
+This also gives me a shortcut. Because those two directories have their own `CLAUDE.md`, I can start a session directly inside one instead of at the vault root. Launching in `sprint-reports/` loads its workflow rules first, and Claude still walks up the tree and applies the root conventions on top. Local context first, every rule above it still in force.
+
+This is what makes one vault safe to hold public, company, and private content side by side. The rule that keeps a client name out of a blog post is attached to the directory, not to my memory.
+
+## Writing notes without leaving the session
+
+The flow: at some point in a session, often as I wrap it up, something is worth keeping, a gotcha that cost me an hour, a decision whose reasoning is not obvious. I say "capture this Rama partitioning insight" or "write a note about the S3 lifecycle policy we just figured out," and Claude writes it from what it already has in context: the problem, the approaches I rejected, the exact error, the code that worked.
+
+I would write better prose by hand than Claude does, at least in a more optimized wya for MY understanding. That is not where the win is. The win is speed and consistent linking: the note exists seconds after I ask, with the right tags and wiki links to the related notes that already exist. Linking and tagging are exactly the parts I cut corners on when I write by hand, because I do not remember every related note or hold the whole taxonomy in my head. Claude searches the vault before writing, so it links the right notes and applies the taxonomy every time, and the graph stays connected instead of quietly rotting.
+
+Not every session gets a note. Routine work (a typo fix, a dependency bump, a deployment I have run a hundred times) has nothing to capture. The bar is simple: would I want to find this again in six months?
 
 ## Retrieving knowledge
 
-The vault is not write-only. I regularly ask Claude to search my notes for past decisions and patterns.
+The vault is not write-only. I pull from it as often as I write to it:
 
-Some examples:
+- **During implementation**: "check my notes on how I set up the OIDC trust policy for GitHub Actions," and Claude reads the note and applies the pattern.
+- **Decision context**: "what did I decide about the Datahike storage backend, and why?" Claude finds the note and lays out the tradeoffs.
+- **Framework patterns**: "read my note on Rama PState operations before writing this topology."
 
-- **Reference during implementation**: "Check my notes on how I set up the OIDC trust policy for GitHub Actions", then Claude reads the relevant note and applies the pattern to the current task.
-- **Decision context**: "What did I decide about the Datahike storage backend and why?", then Claude finds the note, summarizes the tradeoffs, and I can confirm or revisit the decision.
-- **Framework patterns**: "Read my note on Rama PState operations before writing this topology", feeding Claude the domain-specific knowledge it needs for the current session.
-
-This turns the vault into something closer to a personal knowledge API. The notes I write during one session become context for future sessions. The loop compounds: better notes produce better future work, which produces better notes.
+A note written in one session becomes context for the next sessions and in any location, so the value compounds: better notes lead to better work, which produces better notes.
 
 ## The note-writing plugin
 
-I built a small Claude Code plugin with a single skill (`note`) that codifies the note-writing workflow. It is a local plugin, not shared with anyone, just part of my personal Claude Code setup.
-
-The skill is a `SKILL.md` file with the workflow encoded as instructions:
+The `note` skill encodes the workflow. A skill is just a markdown file that hands Claude a workflow on demand. This one lives in my personal marketplace, a private GitHub repo Claude Code installs from and updates against.
 
 ```yaml
 ---
@@ -122,73 +125,35 @@ name: note
 description: Creates or updates notes in the Obsidian vault following
   vault conventions. Use when asked to write a note, document learnings,
   capture knowledge, update a note, or save something to the vault.
-argument-hint: [topic or note name]
 ---
 ```
 
-The skill body specifies:
+The body says three things: read the vault's `CLAUDE.md` first, search for an existing note and update it rather than duplicate, and follow the format rules. The `description` field is doing real work: the trigger phrases in it ("write a note," "document learnings," "capture knowledge") are what make Claude auto-load the skill when I use them. A vague description fires unreliably.
 
-1. **Read conventions first**, always read the vault's `CLAUDE.md` before writing.
-2. **Search before creating**, look for existing notes on the topic. Update if found, create new if not.
-3. **Follow format rules**, frontmatter with tags and date, no H1 headers, wiki links for internal references.
+Why a plugin when the global `CLAUDE.md` already points at the vault? Because the skill enforces the search-before-create step. Without it, Claude sometimes writes a new note when it should have updated one. I can also invoke it explicitly by name instead of relying on the auto-match. One file, but it is the difference between mostly following the conventions and always following them.
 
-The description field is deliberate. It includes trigger keywords ("write a note", "document learnings", "capture knowledge", "update a note", "save something to the vault") so Claude auto-activates the skill when I use any of those phrases. Without these keywords, the skill would load less reliably.
+## Vault vs shared project context
 
-### Why a plugin instead of just CLAUDE.md
+The vault is my knowledge: cross-project patterns, framework comparisons, debugging techniques, decision records. It is not the only place context lives. Each project also carries a `PROJECT_SUMMARY.md` (an LLM-friendly file describing the architecture, key files, and recent changes) and its own `CLAUDE.md`. Those are checked into git and help everyone on the team, whatever editor or model they use. The conventions the team shares live in Claude Code plugins rather than in my vault, a split I describe in [Building Claude Code Plugins for the Team](https://www.loicb.dev/blog/building-claude-code-plugins-for-the-team).
 
-The global `CLAUDE.md` already points Claude to the vault. The plugin adds two things:
-
-1. **Discoverability**, the skill appears in `/skills`, making it visible and invocable explicitly.
-2. **Structured workflow**, the skill enforces the search-before-create pattern. Without it, Claude sometimes creates a new note when an existing one should be updated.
-
-The plugin is lightweight: one skill, one file. But it makes the difference between Claude mostly following conventions and always following them.
-
-## Personal vault vs shared project context
-
-The Obsidian vault is personal knowledge, covering broader patterns, abstract insights, debugging techniques that span projects. But it is not the only place context lives.
-
-Each project has its own `PROJECT_SUMMARY.md` (an LLM-friendly file documenting architecture, key files, and recent changes) and `CLAUDE.md` (project-specific instructions). These are shared, checked into git, and benefit every developer on the team regardless of whether they use an Obsidian vault or even the same LLM.
-
-When I write a vault note about a Rama partitioning insight, that knowledge helps me across projects. When I update a project's `PROJECT_SUMMARY.md` after implementing a feature, that knowledge helps the next person who opens a Claude Code session on that repo. Both are valuable; they operate at different scopes.
-
-The vault captures the kind of knowledge that does not belong in any single repo: cross-project patterns, framework comparisons, tooling workflows, personal decision records. The project-level files capture what this specific codebase does right now. Together, they mean I am not a knowledge bottleneck for my team.
+The two work at different scopes. A vault note on Rama partitioning helps me across every project I touch; an updated `PROJECT_SUMMARY.md` helps the next person who opens a session on that repo. Together they mean I am not a knowledge bottleneck for my team.
 
 ## "But you should write notes yourself"
 
-A common objection: if you do not write the notes by hand, you do not internalize the knowledge. The act of writing is the learning.
+A common objection: if you do not write notes by hand, you never internalize them. The writing is the learning.
 
-I disagree. My notes are not a study tool. They are context for two readers: future me and Claude. When I revisit a topic six months later, I need the precise details (the exact error, the config that fixed it, the tradeoff reasoning), not the fuzzy memory of having once typed them out. And when Claude needs domain-specific knowledge for a current session, it needs accurate, well-linked notes it can read, not a vague summary I half-remember writing.
-
-That said, I do not blindly accept what Claude writes. Every time I commit changes to the vault, I review the notes. I regularly ask Claude to adjust phrasing, restructure sections, or add missing context. The workflow is collaborative: Claude writes fast and links thoroughly, I review and steer. The result is notes that are more complete than what I would write manually, produced in a fraction of the time.
+I disagree. My notes are not a study aid. They are context for two readers, future me and Claude, and both want precision over the memory of having once typed something out. Six months later I need the exact error and the config that fixed it, not a fuzzy recollection. And I do not rubber-stamp the output. Every Friday I go through the notes Claude wrote that week, clean up whatever needs it, and only then commit them. Claude writes fast and links thoroughly during the week; the Friday pass is the human review that keeps the vault trustworthy.
 
 ## Obsidian with zero plugins
 
-My Obsidian installation has zero community plugins. No Dataview, no Templater, no daily notes automation. Obsidian is just a visual layer: a nice editor with a graph view that shows how notes connect.
+My Obsidian install has zero community plugins. No Dataview, no Templater, no automation. Obsidian is a visual layer: a good editor with a graph view.
 
-The real work (writing, linking, tagging, searching) happens through Claude Code. Claude handles the wiki links between notes, picks appropriate tags from the taxonomy, and places files in the right directory. I get the graph and the backlinks panel for free just by having well-linked markdown files.
-
-This means the vault is fully portable. The files are plain markdown with YAML frontmatter and wiki links. If I ever wanted to leave Obsidian, I would just replace `[[Note Name]]` with standard markdown links and everything still works. There is no lock-in to a plugin ecosystem, no custom syntax, no database.
-
-I still use Obsidian because the mobile app is excellent. I can switch between my personal and dev vaults on my phone, dump an idea into `Temp.md` while commuting, and pick it up later from my desk. But the vault does not depend on Obsidian features. It depends on markdown and Claude Code.
+The real work (writing, linking, tagging, searching) happens through Claude Code, which keeps the vault portable: plain markdown with YAML frontmatter and wiki links, nothing locked to Obsidian. My blog already proves this out. It reads the article files straight from the vault and converts the `[[wiki links]]` to ordinary links when it renders, the setup I cover in [Obsidian Vault as Blog Source](https://www.loicb.dev/blog/obsidian-vault-as-blog-source). Leaving Obsidian entirely would be that same one-step conversion, nothing more. No plugin lock-in, no custom syntax, no database.
 
 ## What changed
 
-Before this setup, my note-taking was sporadic. I would finish a session, think "I should document that", and either write a rushed note that missed key details or skip it entirely. My vault had gaps, entire projects with no notes because the friction of switching contexts was just high enough to discourage it.
+I take more notes now, and they are better connected. Each one lands tagged and wiki-linked into the graph, so a related note surfaces when I need it months later instead of being lost.
 
-Now, notes happen as a natural part of the development flow. I just chat with Claude and a note appears in seconds, properly tagged and linked. The vault has better coverage, more precise code examples, and consistent formatting. The wiki links that Claude adds, connecting a new note to related existing notes, build a graph structure that makes the vault more useful as it grows.
+The bigger shift is that the notes stopped being the end of the line. With a scoped `CLAUDE.md` and the right skill per directory, the same raw notes get turned into finished, correctly styled outputs: a bi-weekly sprint report for my team, drafted straight from our git history; company docs in Notion; and public articles for both the company blog and my own. None of it needs reformatting by hand.
 
-The retrieval side matters just as much. Past notes are not just an archive, they are active context for future sessions. The investment in writing a good note pays off the next time I need that knowledge, because Claude can find it and apply it without me having to remember where I put it.
-
-## Conclusion
-
-- **Session context is the key advantage**, Claude has full context of what you just did, making notes more precise than manual summaries
-- **Three-layer config**: vault conventions in `CLAUDE.md`, global pointer in `~/.claude/CLAUDE.md`, directory access in `settings.json`
-- **`additionalDirectories`** lets any project session write to the vault without being in the vault's directory
-- **A small plugin** codifies the note-writing workflow (search before create, format rules, directory placement)
-- **Notes are for two readers**: future you and Claude. Precision matters more than the act of handwriting them
-- **Review, do not rubber-stamp**, commit reviews keep the vault accurate. Claude writes fast, you steer
-- **Zero Obsidian plugins**, Claude Code does the heavy lifting (writing, linking, tagging). Obsidian is just a visual layer and a mobile app
-- **Fully portable**, plain markdown with wiki links. No plugin lock-in, no custom syntax
-- **Retrieval completes the loop**, past notes become active context for future sessions, compounding the value
-- **Personal vault complements shared project context**, `PROJECT_SUMMARY.md` and `CLAUDE.md` serve the team; the vault captures broader, cross-project knowledge
-- **Not every session needs a note**, the bar is whether you would want to find it in six months
+The vault used to be where notes went to sit. Now it is the source my team's reports and my published writing are generated from, each in its own style.

@@ -14,130 +14,122 @@ rss-feeds:
 ---
 ## TLDR
 
-A custom frontend architecture for ClojureScript SPAs using Replicant, where effects are maps, dispatch is a closure, and the state layer is pure `.cljc` testable on the JVM. Used in both [flybot.sg](https://www.flybot.sg) and [pattern.flybot.sg](https://pattern.flybot.sg).
+A small architecture for ClojureScript single-page apps that diverges from [Replicant](https://github.com/cjohansen/replicant)'s recommended data-events dispatch: effects are plain maps, `dispatch!` is a single closure components call directly, and the state layer is pure `.cljc` you can test on the JVM. It runs the [flybot.sg](https://www.flybot.sg) site, the interactive [pull-playground](https://pattern.flybot.sg), and the site you are reading this on [loicb.dev](https://loicb.dev).
 
-## Context
+## The problem
 
-[Replicant](https://github.com/cjohansen/replicant) is a lightweight ClojureScript rendering library built around `defalias` components and plain hiccup. Unlike Re-frame, it has no built-in state management, event system, or subscription layer. You bring your own.
-
-The conventional Replicant approach is to return **action descriptors** (data) from event handlers and dispatch them through a central multimethod:
+[Replicant](https://github.com/cjohansen/replicant) is a small ClojureScript library that renders the UI as a pure function from state to hiccup. It also ships an event system, and the shape its author recommends is elegant: the event handlers in your hiccup are plain **data**, and one global handler, registered with `replicant.dom/set-dispatch!`, reads that data and decides what to do.
 
 ```clojure
-;; Traditional Replicant: actions as data
+;; Replicant's recommended way: handlers are data, one global dispatch
 [:button {:on {:click [:save-post {:id 1}]}}]
 
-;; Central handler dispatches by keyword
-(defmethod handle-action :save-post [_ params] ...)
+(require '[replicant.dom :as r])
+
+(r/set-dispatch!
+  (fn [_ [action data]]            ; the data you put in :on {:click ...}
+    (case action
+      :save-post (swap! store save-post data))))
 ```
 
-We took a different path: components **close over `dispatch!`** and call it directly with an **effect map**. The idea originated from [@Robert Luo](https://github.com/robertluo) and the implementation was first iterated on in an internal project by [Andrean](https://github.com/chickendreanso) and myself. I then applied it to both [flybot-site](https://github.com/flybot-sg/lasagna-pattern/tree/main/examples/flybot-site) and [pull-playground](https://github.com/flybot-sg/lasagna-pattern/tree/main/examples/pull-playground).
+Views stay pure data, so you can test them without a DOM, and there are no closures hiding in the markup. It is a clean model, and for a lot of apps it is the right one.
 
-## Effects as maps
+The catch shows up once the app does real work. A single interaction is rarely one thing: a click might set a loading flag, fire a request, and change the URL all at once, and a later effect often needs the state an earlier one just set. Data actions make you name each such bundle as its own keyword that the central handler expands into those steps, in order, so the handler grows a branch for every combination. On top of that, the action data is frozen when the view renders, so the moment a handler needs the current state, it has to look it up in `app-db` and work it out there. Both pressures pull logic that belongs with the interaction into one central place.
 
-Instead of dispatching a single action keyword, views dispatch a map where each key is an independent effect type:
+[Robert Luo](https://github.com/robertluo) suggested a different shape, and it is what we built on. Instead of dispatching data that *describes* an action, a component closes over a `dispatch!` function and calls it directly with a map of **effects**:
 
 ```clojure
-;; Multiple effects in one dispatch
-(dispatch! {:db    state/set-loading
-            :pull  :pattern
-            :nav   :remote})
+;; Our way: a function handler that calls dispatch! with an effect map
+[:button {:on {:click #(dispatch! {:db   db/set-loading
+                                    :pull :pattern})}}]
 ```
 
-| Effect | Value | What happens |
-|--------|-------|--------------|
-| `:db` | `(fn [db] db')` | Pure state update via `swap!` |
-| `:pull` | `:keyword` or `{:pattern ... :then ...}` | Named pull operation or inline spec |
-| `:nav` | `:keyword` | `pushState` URL navigation (playground) |
-| `:history` | any truthy | `pushState` derived from current db state (flybot-site) |
-| `:confirm` | `{...}` | Confirmation modal (flybot-site) |
-| `:toast` | `{...}` | Auto-dismissing notification (flybot-site) |
-| `:logout` | `"/url"` or `nil` | POST `/logout` then redirect, CSRF-safe (flybot-site) |
-| `:navigate` | `"/url"` | Hard browser redirect (flybot-site) |
+The map is the action. There is no global registry and no action keywords to keep in sync. Replicant lets an event handler be a plain function as well as data, so the handler just calls `dispatch!` directly, and the router behind it is about forty lines. [Andrean](https://github.com/chickendreanso) and I first iterated on the idea in an internal project, and it now runs [flybot-site](https://github.com/flybot-sg/lasagna-pattern/tree/main/examples/flybot-site), the [pull-playground](https://github.com/flybot-sg/lasagna-pattern/tree/main/examples/pull-playground), and [loicb.dev](https://loicb.dev).
 
-This composes naturally: a button click can update state, trigger an API call, and navigate, all in one map. No action registry, no multimethod. The effect map IS the action.
+## Effects are maps
 
-## dispatch-of: the effect router
+Each key in the dispatched map is an independent effect, and one click can fire several at once: update state, kick off an API call, and change the URL, all in a single dispatch.
 
-`dispatch-of` creates a stable `dispatch!` closure that routes effects by key. Two design details matter:
+The effect set is per-app. The playground needs three. flybot-site, which has logins and a real backend, adds a few more.
 
-1. **Fixed execution order**: effects run in a defined sequence (`:db` first, then `:pull`, then navigation), not in map iteration order. This ensures `:pull` always sees the updated state from `:db`.
-	1. **Volatile self-reference**: async callbacks (pull responses, toast timers) need to call `dispatch!` back. Instead of recreating the closure, a `volatile!` holds a stable self-reference.
+| Effect      | Value                             | What it does                              | Used in     |
+| ----------- | --------------------------------- | ----------------------------------------- | ----------- |
+| `:db`       | `(fn [db] db')`                   | pure update of the in-browser state atom  | both        |
+| `:pull`     | keyword or `{:pattern … :then …}` | run a pull pattern: read or mutate data   | both        |
+| `:nav`      | keyword                           | `pushState` URL navigation                | playground  |
+| `:confirm`  | `{…}`                             | confirmation dialog, may sub-dispatch     | flybot-site |
+| `:history`  | `:push` (marker)                  | `pushState`, URL derived from current state | flybot-site |
+| `:toast`    | `{…}`                             | auto-dismissing notification              | flybot-site |
+| `:logout`   | `"/url"`                          | POST `/logout`, then redirect (CSRF-safe) | flybot-site |
+| `:navigate` | `"/url"`                          | hard browser redirect                     | flybot-site |
+
+One name collision is worth flagging: the `:db` effect updates the in-browser `app-db` atom, not the server. Writes to the backend go through `:pull`, since a [pull pattern](https://www.loicb.dev/blog/building-a-pure-data-api-with-lasagna-pattern) both reads and writes depending on its shape. So saving a post is a `:pull`, not a separate effect, and its `:then` folds the response back into the local `:db`.
+
+This composes with no extra wiring. Adding an effect type is one new key and one new branch in the router, not a registration step somewhere else.
+
+## The dispatch cycle
+
+Before the code, here is the shape of one round trip. A click dispatches an effect map. The effects run in a fixed order. The `:db` update fires a re-render through a watcher, and a moment later the async `:pull` calls back into the same `dispatch!`, which updates state again and re-renders. The diagram below shows it for the Execute button.
+
+```mermaid
+sequenceDiagram
+    participant V as View
+    participant D as dispatch!
+    participant DB as app-db atom
+    participant X as executor
+    participant R as Replicant
+
+    V->>D: {:db set-loading, :pull :pattern}
+    D->>DB: :db → swap! (loading)
+    DB-->>R: add-watch fires → re-render
+    D->>X: :pull → run pattern (async)
+    X-->>D: on-success → @self {:db set-result}
+    D->>DB: :db → swap! (result)
+    DB-->>R: add-watch fires → re-render
+```
+
+The loop is the point. The executor's callback has no update path of its own; it dispatches a new effect map back through the same `dispatch!`. State only ever changes through one door.
+
+## dispatch-of: the router
+
+`dispatch-of` builds the `dispatch!` closure. Two details carry the whole design.
+
+First, **effects run in a fixed order**, not map iteration order. `:db` runs before `:pull` so a request reads the state the same click just set, and navigation runs last so the URL reflects the final state. The mode toggle shows why this matters:
+
+```clojure
+{:db   #(db/set-mode % :remote)   ; runs first
+ :pull :init                       ; reads :mode → fetches from the remote server, not the sandbox
+ :nav  :remote}                    ; runs last → URL ends at /remote
+```
+
+`:pull :init` resolves against the `:mode` that `:db` just set, so the same map switches the data source and the URL together, in one dispatch.
+
+Second, a `volatile!` holds a **self-reference**. Async callbacks (a pull response, a toast timer) need to dispatch again, so they deref `@self` instead of taking `dispatch!` as an argument. The closure is created once and never rebuilt.
+
+Here is the playground's version:
 
 ```clojure
 (def ^:private effect-order [:db :pull :nav])
 
 (defn dispatch-of [app-db root-key]
-  (let [self (volatile! nil)
-        dispatch!
-        (fn [effects]
-          (doseq [type effect-order
-                  :let [effect-def (get effects type)]
-                  :when (some? effect-def)]
-            (case type
-              :db   (swap! app-db update root-key effect-def)
-              :pull (let [db   (get @app-db root-key)
-                          spec (pull/resolve-pull effect-def db)]
-                      (when-let [{:keys [pattern then]} spec]
-                        (exec pattern
-                              (fn [r] (@self (if (fn? then) (then r) then)))
-                              (fn [e] (@self {:db #(db/set-error % e)})))))
-              :nav  (.pushState js/history nil "" (str "/" (name effect-def))))))]
-    (vreset! self dispatch!)
+  (let [self      (volatile! nil)                 ; stable self-reference
+        dispatch! (fn [effects]
+                    (doseq [type  effect-order     ; fixed order, not map order
+                            :let  [effect-def (get effects type)]
+                            :when (some? effect-def)]
+                      (case type
+                        :db   (swap! app-db update root-key effect-def)
+                        :pull ...   ; resolve a spec, run it, @self the result back (next section)
+                        :nav  (.pushState js/history nil "" (str "/" (name effect-def))))))]
+    (vreset! self dispatch!)                       ; now callbacks can @self back in
     dispatch!))
 ```
 
-The `@self` dereference inside callbacks is the key trick: pull responses dispatch back through the same stable closure without needing to pass `dispatch!` as an argument. This enables chained async flows where one pull operation's `:then` triggers another dispatch.
+The `@self` deref is what makes chaining work. A pull's `:then` can return `{:db … :pull :another-op}`, and that map flows straight back into the same loop. flybot-site uses the exact same shape with a longer `effect-order`, `[:db :confirm :pull :history :toast :logout :navigate]`, and one branch per extra effect.
 
-## Pull specs: pattern + :then
+The `root-key` is a small scoping detail: every `:db` update is `(swap! app-db update root-key f)`, so an effect only ever touches this app's slice of the atom, never the whole thing. With one app per page that is mostly a guardrail; it is what would let several apps share a single atom without colliding.
 
-Pull handling is inlined in `dispatch-of`, not a separate function. The named operations live in a `resolve-pull` function that returns pure data specs:
-
-```clojure
-;; resolve-pull returns {:pattern <pull-data> :then <fn or map>}
-(defn resolve-pull [op db]
-  (case op
-    :init    {:pattern '{:guest {:posts ?posts} :member {:me ?user}}
-              :then    (fn [r] {:db #(db/init-fetched % r)})}
-    :pattern (let [p (read-pattern (:pattern-text db))]
-               {:pattern p
-                :then    (fn [r] {:db #(db/set-result % r)})})
-    ...))
-```
-
-The `:then` value is either a function `(fn [response] effect-map)` or a static effect map. Either way, `dispatch-of` calls `@self` with it, feeding the result back into the effect loop. This is how chaining works: a `:then` can return `{:db ... :pull :another-op}` to trigger further operations.
-
-In the playground, `resolve-pull` handles three shapes depending on the operation and mode:
-
-| Shape | When | Example |
-|-------|------|---------|
-| `{:pattern ... :then ...}` | Standard pull | `:data`, `:schema`, sandbox `:init` |
-| `{:fetch url :then ...}` | HTTP GET (remote schema) | Remote `:init` |
-| `{:error msg}` | Validation failure | Empty pattern text |
-
-The `:pull` branch in `dispatch-of` checks which shape it received and routes accordingly.
-
-## make-executor: mode-agnostic transport
-
-In [pull-playground](https://pattern.flybot.sg), the same UI works in two modes: sandbox (SCI evaluates patterns in-browser) and remote (HTTP POST to a backend). `make-executor` is the ONLY mode-specific function:
-
-```clojure
-(defn- make-executor [db]
-  (case (:mode db)
-    :sandbox (fn [pattern on-success on-error]
-               (let [{:keys [result error]}
-                     (sandbox/execute! (:sandbox/store db) sandbox/store-schema pattern)]
-                 (js/queueMicrotask (if error #(on-error error) #(on-success result)))))
-    :remote  (fn [pattern on-success on-error]
-               (pull! (:server-url db) pattern on-success on-error))))
-```
-
-In sandbox mode, `sandbox/execute!` calls `remote/execute` in-process via SCI. The result is synchronous, so `js/queueMicrotask` defers the callback to avoid recursive dispatch (the callback will call `@self`, which would re-enter `dispatch!` mid-execution). In remote mode, the HTTP promise handles this naturally since `.then` is already async.
-
-Everything else in the `:pull` handler is shared: resolving specs, calling `:then`, dispatching results back through `@self`.
-
-## Module-level dispatch and watcher
-
-`dispatch!` is created once as a module-level `def` and never recreated. An `add-watch` on the app-db atom triggers re-renders:
+`dispatch!` is created once as a top-level `def` and threaded everywhere from there:
 
 ```clojure
 (def dispatch! (dispatch-of app-db root-key))
@@ -145,75 +137,108 @@ Everything else in the `:pull` handler is shared: resolving specs, calling `:the
 (add-watch app-db :render
   (fn [_ _ _ state]
     (when-let [el (js/document.getElementById "app")]
-      (r/render el (views/app-view {::views/db       (root-key state)
+      (r/render el (views/app-view {::views/db        (root-key state)
                                     ::views/dispatch! dispatch!})))))
-```
 
-Initialization dispatches the first pull to load data:
-
-```clojure
 (defn ^:export init! []
   (init-theme!)
   (dispatch! {:db db/set-loading :pull :init}))
 ```
 
-This watcher pattern, borrowed from our internal analytics platform, avoids the common pitfall of recreating `dispatch!` on every render cycle. The closure is stable, so component identity is preserved across renders.
+The watcher is the only thing that renders, and it always reads the stable `dispatch!`. Because the closure is never recreated on a render, there is no risk of rebuilding it on every cycle, a common pitfall when the dispatch function is defined inside the render path.
 
-## Pure state layer
+## Pull specs are data
 
-All state transitions live in a separate `.cljc` namespace as pure `db -> db` functions:
+`:pull` does no I/O itself. It hands its keyword to `resolve-pull`, a pure function that returns a data spec, `{:pattern … :then …}`:
 
 ```clojure
-;; db.cljc - testable on the JVM, no browser needed
+(defn resolve-pull [op db]
+  (case op
+    :pattern {:pattern (read-pattern (:pattern-text db))
+              :then    (fn [r] {:db #(db/set-result % r)})}
+    ...))
+```
+
+The router runs the pattern, then feeds the `:then` result back through `@self`. That is how one operation chains into the next: a `:then` can return `{:db … :pull :another-op}`, and the map flows straight back into the loop. Because `resolve-pull` returns plain data and touches nothing, it tests on the JVM with no browser.
+
+How the playground actually runs that pattern, in-browser through SCI or over HTTP to a server, is its own topic. See [Pull Playground - Interactive Pattern Learning](https://www.loicb.dev/blog/pull-playground-interactive-pattern-learning).
+
+## The pure state layer
+
+Every state transition is a plain `db -> db` function in a `.cljc` namespace:
+
+```clojure
+;; db.cljc: pure, runs on the JVM with no browser
 (defn set-loading [db]
-  (assoc db :loading? true :error nil))
+  (assoc db :loading? true :error nil :result nil))
 
 (defn set-result [db result]
-  (assoc db :loading? false :result result))
+  (assoc db :loading? false :result result :error nil))
 
 (defn set-mode [db mode]
   (-> db
       (assoc :mode mode)
-      (assoc :result nil :error nil)))
+      (assoc :result nil :error nil :selected-example nil)))
 ```
 
-Views dispatch these functions directly as the `:db` effect value. Because they are pure `.cljc`, they are testable on the JVM via Rich Comment Tests, no browser or CLJS compilation needed.
+Views pass these functions straight in as the `:db` effect value. Because they are pure and platform-neutral, they run as Rich Comment Tests (tests written inside `(comment ...)` blocks) on the JVM, with no browser and no ClojureScript compile in the loop.
 
-## View layer
+## The view layer
 
-Components use `defalias` with namespaced props. `dispatch!` is threaded through explicitly:
+Components are `defalias` definitions (Replicant's macro for a reusable component) that take namespaced props, with `dispatch!` threaded in explicitly:
 
 ```clojure
-(defalias pattern-panel [{::keys [db dispatch!]}]
-  [:div.pattern-panel
-   [:textarea {:value (:pattern-text db)
-               :on    {:input #(dispatch! {:db (fn [db] (assoc db :pattern-text (.-value (.-target %))))})}}]
-   [:button {:on {:click #(dispatch! {:db state/set-loading :pull :pattern})}}
-    (if (:loading? db) "Running..." "Execute")]])
+(defalias pattern-results-panel [{::keys [db dispatch!]}]
+  [:div.pattern-results-panel
+   [:button.execute-btn
+    {:on {:click #(dispatch! {:db db/set-loading :pull :pattern})}
+     :disabled (:loading? db)}
+    (if (:loading? db) "Executing..." "Execute")]
+   ;; results section reads (:result db) / (:error db) ...
+   ])
 ```
 
-The trade-off vs. Replicant's global action system: components need `dispatch!` in their props. For small-to-medium apps, explicit threading is clearer than a global dispatch registry.
+Every component needs `dispatch!` in its props, the cost of not routing through a global dispatch. The upside is that you can read one component and see exactly what it is allowed to do, with no hidden global to chase.
 
-## Why not Re-frame
+The view is no longer pure data, the handler is a closure, but it stays easy to exercise: call a `defalias` with a `db` map and a stub `dispatch!`, then assert on the hiccup it returns, or on the effect maps the stub captured. The same handle works in [Portfolio](https://github.com/cjohansen/portfolio), the Replicant author's component workbench: pass a no-op `dispatch!` to a `defscene` and you can preview every state of a component without a running app.
 
-| Aspect | Re-frame | dispatch-of |
-|--------|----------|-------------|
-| State management | Subscription DAG + event handlers | Single atom + pure `db -> db` functions |
-| Side effects | `reg-fx` + interceptor chain | Effect map keys (`:pull`, `:nav`) |
-| Rendering | Reagent reactions | Replicant `defalias` + `add-watch` |
-| Boilerplate | `reg-event-db`, `reg-sub`, `reg-fx` per feature | One `case` branch per effect type |
-| Testing | Requires subscription/event test harness | Plain `.cljc` function tests |
+## The trade-off
 
-Re-frame is powerful, but for apps of this size, the subscription registry and event interceptor chain add ceremony without proportional benefit. `dispatch-of` gives the same unidirectional flow with less machinery.
+Both approaches keep a single source of truth and a one-way flow. The difference is what a component hands off, and where the side effects live, shown below:
 
-## Conclusion
+```mermaid
+flowchart LR
+    subgraph sd["Replicant set-dispatch!"]
+        direction TB
+        sv["view hands off<br/>an action (data)"] --> sh["global handler:<br/>look up the action,<br/>run its effects"]
+    end
+    subgraph dc["dispatch! closure"]
+        direction TB
+        dv["view hands off<br/>an effect map"] --> dr["router:<br/>run each effect by key"]
+    end
+```
 
-- **Effects are maps, not action vectors**: multiple side effects compose in a single dispatch call
-- **Fixed execution order via `effect-order`**: `:db` runs first so other effects see updated state
-- **Volatile self-reference**: async callbacks dispatch back through the same stable closure
-- **Pull specs are pure data**: `resolve-pull` returns `{:pattern ... :then ...}`, testable without a browser
-- **`make-executor` is the only mode-specific function**: sandbox (SCI in-browser) and remote (HTTP) share everything else
-- **Pure `.cljc` state layer**: all transitions are testable on the JVM
-- **Explicit prop threading over global dispatch**: clearer data flow for small-to-medium SPAs
+In both, the side effects live downstream of the view, never in it. What changes is the hand-off: `set-dispatch!` hands an action that a global handler must interpret, while the closure hands the effects themselves to a router that just runs them.
 
-This pattern is used in both [flybot-site](https://github.com/flybot-sg/lasagna-pattern/tree/main/examples/flybot-site) and [pull-playground](https://github.com/flybot-sg/lasagna-pattern/tree/main/examples/pull-playground). See also [Pull Playground](https://www.loicb.dev/blog/pull-playground-interactive-pattern-learning) for how the sandbox/remote mode abstraction works in practice.
+| | `set-dispatch!` (data events) | `dispatch!` closure (effect maps) |
+|---|---|---|
+| Handler in hiccup | pure data: `[:save-post {:id 1}]` | function: `#(dispatch! {…})` |
+| Routing | one global handler, `case` on the action | component holds `dispatch!`, router runs effects by key |
+| What a component can do | emit any action the handler knows | only what its props allow |
+| One interaction, many effects | central handler expands one verb into the steps | effects listed in one map, run in order |
+| Reading live state | dispatch fn digs into the global store | component holds `db`; effect fns get it |
+| Views | pure data, trivially testable | hold a `dispatch!` closure; test by injecting a stub |
+
+The trade is real: you give up pure-data views (the handler is a closure, not a serializable vector) and you thread `dispatch!` through props. Testability survives, you inject a stub `dispatch!`, but serializability does not.
+
+The advantages are why we keep it. A component can only do what its props allow: with no `dispatch!` it cannot change state or fire an effect, and with one, its whole effect surface sits in the body instead of in a global handler you have to grep. Effects compose in a single map and read live state directly, and `:db` updates are scoped to `root-key`, so an effect cannot reach outside this app's slice of the atom. You read one component and know exactly what it can touch.
+
+For these apps, that locality is worth more than serializable views.
+
+If Re-frame is your reference point: the effect map is what a `reg-event-fx` handler returns, but the component dispatches it directly, with no event id, no handler registry, and no subscription graph.
+
+## What you get
+
+State changes through one door: an effect map. The router is about forty lines and you read all of it. The state layer is pure and tests on the JVM. Adding an effect is one key and one branch.
+
+The shape holds across sizes. loicb.dev routes `[:db :history]`. The playground routes `[:db :pull :nav]`. flybot-site routes seven effects, adding confirm dialogs, toasts, and a logout flow. Same router, same effect map, more keys. Less to build, and less to hold in your head.
