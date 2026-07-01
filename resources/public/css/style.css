@@ -521,7 +521,10 @@ a:hover { color: var(--accent-hover); text-decoration: underline; }
 }
 
 .markdown-content table {
-  width: 100%;
+  display: block;        /* so overflow-x applies (a bare table is display:table and ignores it) */
+  width: max-content;    /* size to content, not forced 100% */
+  max-width: 100%;       /* never wider than the container… */
+  overflow-x: auto;      /* …scroll within its own box instead of the whole page */
   border-collapse: collapse;
   margin-bottom: 1rem;
   font-size: 0.9rem;
