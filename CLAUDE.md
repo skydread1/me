@@ -66,7 +66,9 @@ The articles directory must contain:
 - `blog/` (required) — markdown posts with YAML frontmatter
 - `media/` (optional) — images referenced by posts
 
-The task copies files to `content/`, then normalizes markdown: strips internal refs, converts `[[wiki links]]` to web links, rewrites `../media/` paths to `/assets/media/`. If you don't know the user's articles path, ask them.
+The task copies files to `content/`, normalizes markdown (strips internal refs, converts `[[wiki links]]` to web links, rewrites `../media/` paths to `/assets/media/`), and finally runs `copy-assets` so imported media is published to `resources/public/assets/media/` and renders in dev. If you don't know the user's articles path, ask them.
+
+Because posts are embedded at compile time, changing markdown does not hot-reload on its own. When a shadow watch is running, recompile the macro's namespace (`touch src/loicb/me/ui/core/db.cljc`) to re-expand `posts-data` and pick up the new content in the browser.
 
 ### Build & deploy
 
@@ -114,7 +116,7 @@ dev/
 | `bb dev` | nREPL with shadow-cljs middleware |
 | `bb watch` | shadow-cljs watch (standalone, no REPL) |
 | `bb test` | Run RCT tests on JVM |
-| `bb import-notes <dir>` | Import articles from vault to `content/` |
+| `bb import-notes <dir>` | Import articles from vault to `content/` (also runs `copy-assets`) |
 | `bb copy-assets` | Copy `content/media` to public assets |
 | `bb build` | Release JS bundle (depends on copy-assets) |
 | `bb rss` | Generate RSS feeds |

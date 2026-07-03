@@ -100,9 +100,35 @@
   )
 
 (defn strip-internal-refs
-  "Remove the ## Internal refs section (vault-only, not for public)."
+  "Remove the trailing ## Internal refs section (vault-only, not for public).
+   Fence-aware: an '## Internal refs' heading inside a ``` code block (e.g. an
+   example in the meta-article about this pipeline) is left intact; only a real
+   heading outside code fences is stripped, from there to the next ## heading
+   or the end of the document."
   [content]
-  (str/replace content #"(?i)\n## Internal refs[\s\S]*?(?=\n## |\z)" ""))
+  (let [refs-heading? #(re-matches #"(?i)## Internal refs\s*" %)
+        next-heading? #(re-matches #"## .*" %)
+        fence?        #(re-matches #"```.*" %)]
+    (loop [[line & more] (str/split-lines content)
+           in-fence?     false
+           dropping?     false
+           out           []]
+      (if (nil? line)
+        (str/join "\n" out)
+        (let [toggling? (boolean (fence? line))
+              in-fence' (if toggling? (not in-fence?) in-fence?)]
+          (cond
+            (and (not in-fence?) (not toggling?) (not dropping?) (refs-heading? line))
+            (recur more in-fence' true out)
+
+            (and dropping? (not in-fence?) (not toggling?) (next-heading? line))
+            (recur more in-fence' false (conj out line))
+
+            dropping?
+            (recur more in-fence' true out)
+
+            :else
+            (recur more in-fence' false (conj out line))))))))
 
 ^:rct/test
 (comment
@@ -111,6 +137,12 @@
 
   (strip-internal-refs "## Intro\n\nNo refs here.")
   ;=> "## Intro\n\nNo refs here."
+
+  ;; an '## Internal refs' example inside a code fence is preserved;
+  ;; only the real trailing section is stripped
+  (strip-internal-refs
+   "## Doc\n\n```markdown\n## Internal refs\n\n- [[Example]]\n```\n\nMore.\n\n## Internal refs\n\n- [[Real Note]]")
+  ;=> "## Doc\n\n```markdown\n## Internal refs\n\n- [[Example]]\n```\n\nMore.\n"
   )
 
 (defn media-paths->absolute
