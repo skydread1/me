@@ -15,42 +15,60 @@ rss-feeds:
 ---
 ## TLDR
 
-[Pull Playground](https://pattern.flybot.sg) is an interactive SPA for learning the [lasagna-pattern](https://github.com/flybot-sg/lasagna-pattern) DSL. Two modes: sandbox (runs entirely in the browser via SCI) and remote (sends patterns to a live server). Same UI, same pull engine, different transport.
+[Pull Playground](https://pattern.flybot.sg) is an interactive SPA for learning the [lasagna-pattern](https://github.com/flybot-sg/lasagna-pattern) pull DSL. Sandbox mode evaluates patterns entirely in the browser with SCI against an in-memory store, and remote mode sends the same Transit-encoded patterns to a live server. One UI, one pull engine, two transports.
 
-## Context
+## Learning a DSL from documentation is slow
 
-The [lasagna-pattern](https://github.com/flybot-sg/lasagna-pattern) DSL is central to how we build APIs at Flybot (see [Building a Pure Data API with Lasagna Pattern](https://www.loicb.dev/blog/building-a-pure-data-api-with-lasagna-pattern)). But learning the syntax from documentation alone is slow. You need to type patterns, see results, and build intuition through experimentation.
-
-I built the playground as a companion to [flybot.sg](https://www.flybot.sg/). The goal was a zero-setup environment where someone could open a URL and start writing patterns immediately, without cloning a repo, starting a REPL, or connecting to a database.
+The [lasagna-pattern](https://github.com/flybot-sg/lasagna-pattern) DSL is central to how we build APIs at Flybot: the client sends an EDN pattern shaped like the data it wants, and the same syntax covers reads and writes (see [Building a Pure Data API with Lasagna Pattern](https://www.loicb.dev/blog/building-a-pure-data-api-with-lasagna-pattern)). Documentation gets you the concepts, but trying a pattern used to mean cloning the repo, starting a REPL, and loading sample data: too much to ask of someone who just wants to see what the syntax feels like. So I built the [Pull Playground](https://pattern.flybot.sg) as a companion to [flybot.sg](https://www.flybot.sg): open a URL and you are experimenting immediately, no repo, no REPL, no database.
 
 ## Two modes, one UI
 
-The playground supports two modes, toggled via URL path (`/sandbox`, `/remote`):
+Routing is path-based, `/sandbox` and `/remote`, with `pushState` navigation:
 
-| Mode | How it works | Backend needed? |
-|------|-------------|-----------------|
-| Sandbox | SCI evaluates patterns in-browser against sample data | No |
-| Remote | HTTP POST to a live server API (e.g. [flybot.sg](https://www.flybot.sg/api)) | Yes |
+| Mode | Patterns execute | Backend needed? |
+|------|------------------|-----------------|
+| Sandbox (default) | in the browser via SCI, against an in-memory store | No |
+| Remote | on a live server, via HTTP POST | Yes |
 
-The UI is mode-agnostic. Views dispatch `{:pull :pattern}` and the effect system routes to the right executor (see [Building a ClojureScript SPA with Replicant and dispatch-of](https://www.loicb.dev/blog/building-a-clojurescript-spa-with-replicant-and-dispatch-of)). Switching modes changes the transport, not the interface.
+**[Sandbox](https://pattern.flybot.sg/sandbox)** ships with 20 progressive examples in six groups, from binding a value to deleting an entity:
 
-**Sandbox** is the default and the one most people use. It ships with progressive examples that teach the DSL step by step: binding scalars, querying collections, using `:when` constraints, composing across collections, and performing mutations (create, update, delete). Each example loads a pre-filled pattern into the editor. For mutations, the data panel refreshes automatically so you can see the effect.
+| Group | Example pattern | What it teaches |
+|-------|-----------------|-----------------|
+| Basics | `{:config {:features ?f}}` | bind values out of nested maps |
+| Collections | `{:users {{:id 2} ?user}}` | list a collection, indexed lookup, select fields |
+| Modifiers | `{:config {:debug (?d :default false)}}` | wildcard `?_`, defaults, `:when` constraints |
+| Sequences | `{:posts {{:id 2} {:tags [?first ?rest*]}}}` | positional vector matching: `[a b]`, `[a b*]`, `[a+]`, `[a b?]` |
+| Composition | `{:users {{:id 1} {:name ?u}} :posts {{:id 1} {:title ?t}}}` | several collections and features in one pattern |
+| Mutations | `{:users {nil {:name "Dave"}}}` | create (`nil` key), update (map value), delete (`nil` value) |
 
-**Remote** connects to a live server and sends the same Transit-encoded patterns that [flybot.sg](https://www.flybot.sg) uses for its own frontend. This is useful for testing patterns against real data or debugging API behavior. Remote mode also adds schema-aware autocomplete tooltips from the server's Malli schema.
+Clicking an example pre-fills the editor, and after a mutation the data panel refreshes so you see the write land.
 
-A dispatched `:pull` resolves to a data spec, then runs through the executor for the current mode. The dispatch mechanics behind it are in [Building a ClojureScript SPA with Replicant and dispatch-of](https://www.loicb.dev/blog/building-a-clojurescript-spa-with-replicant-and-dispatch-of); the diagram below traces the path:
+**[Remote](https://pattern.flybot.sg/remote)** sends the same [Transit](https://github.com/cognitect/transit-cljs)-encoded patterns that the flybot.sg frontend sends to its own backend. The default server URL is `https://www.flybot.sg/api`, which accepts guest reads only, and the 13 remote examples exercise what a live server adds: role-scoped patterns like `{:guest {:posts ?all}}`, partial success where data comes back alongside `:errors`, and schema validation failures.
+
+In both modes the editor is schema-aware: hover tooltips and autocomplete are driven by the server's [Malli](https://github.com/metosin/malli) schema. Sandbox pulls the schema out of its in-memory store, while remote fetches it from `GET /api/_schema` when you connect.
+
+The UI never branches on the mode. The Execute button dispatches the effect map `{:db db/set-loading :pull :pattern}` (the dispatch machinery is the subject of [Building a ClojureScript SPA with Replicant and dispatch-of](https://www.loicb.dev/blog/building-a-clojurescript-spa-with-replicant-and-dispatch-of)), `resolve-pull` turns the keyword into a data spec, and `make-executor` picks the transport from `(:mode db)`. It is the only mode-specific function in the app. The diagram below shows the two paths:
 
 ```mermaid
 flowchart TD
-    pull[":pull"] --> rp["resolve-pull → spec<br/>(pure, .cljc)"]
-    rp --> shape{"spec shape"}
-    shape -->|":error"| err["dispatch :db set-error"]
-    shape -->|":fetch"| fetch["HTTP GET /_schema"]
-    shape -->|":pattern"| exec["make-executor"]
-    exec --> mode{":mode"}
-    mode -->|":sandbox"| sci["SCI eval in-browser<br/>(queueMicrotask)"]
-    mode -->|":remote"| http["HTTP POST /api"]
+    ui["Execute click<br/>{:db set-loading, :pull :pattern}"] --> rp["resolve-pull<br/>pure spec resolution"]
+    rp --> ex{"make-executor<br/>(:mode db)"}
+    ex -->|":sandbox"| eng1
+    ex -->|":remote"| http
+    subgraph sb["Sandbox"]
+        direction TB
+        eng1["remote/execute<br/>SCI resolve + eval"] --> store["atom-source store<br/>browser memory"]
+    end
+    subgraph rm["Remote"]
+        direction TB
+        http["POST /api<br/>Transit"] --> eng2["remote/execute<br/>safe-resolve"]
+        eng2 --> coll["server collections"]
+    end
+    classDef engine fill:#2563eb,stroke:#1d4ed8,color:#fff
+    class eng1,eng2 engine
 ```
+
+The symmetry is the point: **the same `remote/execute` engine runs the pattern on both ends**. In sandbox it runs in-process against browser memory; in remote it runs on the server against real collections. The sandbox executor even defers its callbacks with `queueMicrotask` so results arrive asynchronously, exactly like an HTTP response, and nothing downstream can tell the difference.
 
 ## Why SCI
 
@@ -60,26 +78,83 @@ Pull patterns support `:when` constraints with predicate functions:
 {:posts {{:id 1} {:title (?t :when string?)}}}
 ```
 
-On a server, `string?` resolves from `clojure.core`. In the browser, there is no Clojure runtime. [SCI](https://github.com/babashka/sci) (Small Clojure Interpreter) fills this gap: it provides a sandboxed Clojure evaluator in ClojureScript.
+Somebody has to resolve `string?` to an actual function, and in the browser there is no Clojure runtime to do it. [SCI](https://github.com/babashka/sci) (Small Clojure Interpreter) fills the gap: a sandboxed Clojure evaluator that runs in ClojureScript.
 
-The sandbox initializes SCI with a curated whitelist of safe functions (`pos?`, `string?`, `count`, `=`, etc.) covering what people actually use in `:when` constraints. No `eval`, no IO, no side effects.
+The sandbox initializes SCI with a whitelist of about two dozen predicates (`pos?`, `string?`, `count`, `=` etc), which covers what people actually write in `:when` constraints. Both hooks, defined in the playground's [sandbox.cljc](https://github.com/flybot-sg/lasagna-pattern/blob/main/examples/pull-playground/src/sg/flybot/playground/ui/core/sandbox.cljc), are one-liners over that restricted context, so a symbol outside the whitelist simply does not exist: no `eval`, no IO, no host interop.
 
-The key insight is that the same `remote/execute` function runs in both modes. On the server, it uses Clojure's built-in `resolve`. In the sandbox, it uses SCI's resolve and eval. The pull engine does not know or care which one it is talking to.
+```clojure
+(def sci-ctx
+  (sci/init {:namespaces {'clojure.core {'string? string? 'pos? pos?
+                                         'count count '= = ...}}}))
+
+(defn sci-resolve [sym]  (sci/eval-form sci-ctx sym))
+(defn sci-eval    [form] (sci/eval-form sci-ctx form))
+```
+
+The engine makes this pluggable, and `execute!`, in the same `sandbox.cljc`, shows just how little the modes differ. The whole difference is one reader conditional in an options map:
+
+```clojure
+(defn execute!
+  [store schema pattern]
+  (let [opts   #?(:clj  {}  ;; JVM: library defaults, same as a real server
+                  :cljs {:resolve sci-resolve :eval-fn sci-eval})
+        api-fn (fn [_ctx] {:data store :schema schema})]
+    (remote/execute api-fn pattern opts)))
+```
+
+With empty options, `remote/execute` falls back to the defaults the `remote` library ships in [http.cljc](https://github.com/flybot-sg/lasagna-pattern/blob/main/remote/src/sg/flybot/pullable/remote/http.cljc), the same ones a real server runs with, and they are stricter still: `safe-resolve` is a plain lookup in a hard-coded predicate map (no interpreter at all), `safe-eval` refuses everything, and a pattern depth limit of 100 guards against DoS.
+
+```clojure
+(defn safe-resolve [sym]
+  (or (get safe-predicates sym)   ;; {'string? string?, 'pos? pos?, ...}
+      (throw (ex-info "Predicate not allowed in remote patterns" {:symbol sym}))))
+
+(defn safe-eval [form]
+  (throw (ex-info "Code evaluation not allowed in remote patterns" {:form form})))
+```
+
+So there are two independent sandboxes, one per runtime, and both are closed by default. Arbitrary code in a pattern does not run anywhere.
+
+The `:clj` branch is not dead code either: it is what lets the sandbox's Rich Comment Tests run on the JVM, exercising the exact `execute!` the browser ships.
 
 ## Same engine, in-memory data
 
-The sandbox needs something that behaves like a database. The `collection` library provides `atom-source`, an in-memory implementation backed by atoms that supports the same CRUD operations as a real `DataSource`. The sandbox store is a map of atom-source-backed collections, initialized with sample data (users, posts, config).
+The sandbox still needs something that behaves like a database. The `collection` library ships `atom-source`, an in-memory `DataSource` backed by an atom, with the same CRUD interface a real backend implements (the protocol stack is covered in [Building a Pure Data API with Lasagna Pattern](https://www.loicb.dev/blog/building-a-pure-data-api-with-lasagna-pattern)). The store the sandbox pulls from is a plain map, built by `make-store` in the same `sandbox.cljc`:
 
-Two design choices worth noting:
+```clojure
+(make-store (make-sources data/default-data))
+;; => {:users  ...   ;; atom-source collection, mutable
+;;     :posts  ...   ;; atom-source collection, mutable
+;;     :config {...} ;; plain map, read-only
+;;     :schema {...} ;; plain data, pull it like anything else
+;;     :seed   ...}  ;; Mutable: mutating it resets the store
+```
 
-**Schema is pull-able data.** Instead of a separate endpoint, the schema lives in the store alongside domain collections. Querying `{:schema ?s}` returns it through the same pull mechanism as `{:users ?all}`. The playground uses pull for everything, including introspecting its own API.
+Only `:users` and `:posts` are mutable collections. `:config` is a plain map sitting in the same store, which works because the pattern engine reads everything through `ILookup` and does not care what implements it. Two entries push the idea further:
 
-**Reset is a pull mutation.** Resetting data to defaults is expressed as `{:seed {nil true}}`, a standard create mutation. The seed entry resets all atom-sources to their initial state. No special reset endpoint, no reload.
+**The schema is pull-able data.** Instead of a dedicated endpoint, the schema lives in the store next to the domain collections, so `{:schema ?s}` returns it through the same pull mechanism as `{:users ?all}`. The playground uses pull for everything, including introspecting its own API.
+
+**Reset is a pull mutation.** `{:seed {nil true}}` is a standard create-shaped mutation whose target reifies `Mutable`: mutating it resets each atom-source's atom and ID counter back to the sample data, original IDs included. The Reset button just dispatches `{:pull :seed}`. No special reset endpoint, no page reload.
+
+The demo backend in `server/main.clj` mirrors this exactly: same sample data namespace, same schema-and-seed-as-data store, exposed through the standard remote Ring handler. Sandbox and server are not two implementations that happen to agree; they are one design instantiated twice.
 
 ## Deployment
 
-The sandbox runs entirely in the browser, so the playground is a pure SPA with no server dependency. This makes hosting straightforward: an S3 bucket behind CloudFront, deployed via GitHub Actions on git tag. Total cost is under $1/month.
+Because the sandbox runs entirely in the browser, the playground deploys as static files: a private S3 bucket behind CloudFront at `pattern.flybot.sg`.
 
-The deploy pipeline reuses the same CI/CD setup as [flybot.sg](https://www.flybot.sg/). A `bb tag examples/pull-playground 0.1.0` triggers a shadow-cljs release build, S3 sync, and CloudFront cache invalidation.
+Releases are tag-driven. `bb tag examples/pull-playground` reads the component's `resources/version.edn` and pushes a `pull-playground-v*` tag, which triggers the GitHub Actions pipeline below:
 
-The full source is in [lasagna-pattern/examples/pull-playground](https://github.com/flybot-sg/lasagna-pattern/tree/main/examples/pull-playground).
+```mermaid
+flowchart LR
+    tag["bb tag<br/>pull-playground-v*"] --> gha["GitHub Actions"]
+    gha --> build["shadow-cljs<br/>release build"]
+    build --> s3["aws s3 sync<br/>private S3 bucket"]
+    s3 --> cf["CloudFront<br/>invalidation"]
+    cf --> live["pattern.flybot.sg"]
+```
+
+The workflow stamps the version into `index.html`, builds the release bundle with [shadow-cljs](https://github.com/thheller/shadow-cljs), syncs `resources/public` to S3, and invalidates the CloudFront cache so the new version is live immediately. The full source is in [lasagna-pattern/examples/pull-playground](https://github.com/flybot-sg/lasagna-pattern/tree/main/examples/pull-playground).
+
+## What you get
+
+Open [pattern.flybot.sg](https://pattern.flybot.sg) and you are writing pull patterns in seconds. Twenty examples take you from binding a value to deleting an entity, reset is one click, and nothing you break stays broken. And switch to remote mode to run patterns against flybot.sg directly and pull real-world data (only its public, guest-readable endpoints are available without proper auth).
