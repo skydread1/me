@@ -320,11 +320,23 @@ a:hover { color: var(--accent-hover); text-decoration: underline; }
 }
 
 .post-detail .post-repos {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.25rem 0.75rem;
   margin-top: 0.5rem;
   font-size: 0.85rem;
 }
 
 .post-detail .post-repos span { color: var(--text-muted); }
+
+.post-detail .repo-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+.post-detail .repo-link svg { flex-shrink: 0; }
 
 /* ---- Table of contents ---- */
 
