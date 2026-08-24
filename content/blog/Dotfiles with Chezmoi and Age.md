@@ -98,11 +98,11 @@ chezmoi reads the file, encrypts it with the recipient public key, and stores it
 
 ## What I encrypt, and why
 
-| Deployed to          | Source in repo                      | Contents                                 |
-| -------------------- | ----------------------------------- | ---------------------------------------- |
-| `~/.aws/credentials` | `dot_aws/encrypted_credentials.age` | AWS access keys                          |
-| `~/.secrets.sh`      | `encrypted_dot_secrets.sh.age`      | Git emails, private registry credentials |
-| `~/.ssh/*`           | `private_dot_ssh/encrypted_*.age`   | SSH keys, ssh config, allowed signers    |
+| Deployed to | Source in repo | Contents |
+|-------------|----------------|----------|
+| `~/.aws/credentials` | `dot_aws/encrypted_credentials.age` | AWS access keys |
+| `~/.secrets.sh` | `encrypted_dot_secrets.sh.age` | Git emails, private registry credentials |
+| `~/.ssh/*` | `private_dot_ssh/encrypted_*.age` | SSH keys, ssh config, allowed signers |
 
 The diagram below shows the full flow on any machine that has the key: encrypted blobs and plain configs go in, `chezmoi apply` decrypts and writes, and `~/.zshrc` sources `~/.secrets.sh` to load the secret environment variables.
 
