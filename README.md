@@ -18,6 +18,12 @@ Personal portfolio and blog. Built with ClojureScript, [Replicant](https://githu
 
 Static SPA — no server. Blog content is embedded at compile time. Deployed to [Netlify](https://www.netlify.com/).
 
+## Documentation
+
+- [docs/architecture.md](docs/architecture.md): dispatch-of, db layer, tag filtering, content pipeline
+- [CONTRIBUTING.md](CONTRIBUTING.md): issues, branches, pull requests, commits
+- [CHANGELOG.md](CHANGELOG.md): released changes
+
 ## Features
 
 - **Faceted tag filtering** — two-dimensional filtering (projects + topics) with AND logic. Select multiple tags to narrow results; click again to deselect. URL encodes active filters as sorted `+`-separated tags (e.g. `/tags/analytics+hibou`) for shareable, canonical links.
@@ -109,6 +115,8 @@ bb test
 
 Uses [Rich Comment Tests](https://github.com/RobertLuo1/rich-comment-tests) (RCT). All source files are `.cljc` so tests run on the JVM without a browser.
 
+Every new db updater, history function or build helper gets an RCT test directly below it.
+
 ## Build & Deploy
 
 ```bash
@@ -174,6 +182,18 @@ dev/
 | `bb fmt-check` | Check code formatting |
 | `bb fmt-fix` | Fix code formatting |
 | `bb outdated` | Show outdated dependencies |
+
+## deps.edn aliases
+
+| Alias | Purpose |
+|-------|---------|
+| `:dev` | nREPL + CIDER + kaocha + RCT |
+| `:cljs` | shadow-cljs |
+| `:rct` | RCT test runner (standalone, no dev deps) |
+| `:build` | tools.build for RSS generation |
+| `:kaocha` | Kaocha test runner |
+| `:cljfmt` | Code formatting |
+| `:outdated` | Dependency checker |
 
 ## License
 
