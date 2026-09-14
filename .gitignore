@@ -6,6 +6,7 @@ target/
 dist/
 resources/public/js/
 resources/public/assets/
+resources/public/lib/
 *.class
 
 # Editor/IDE

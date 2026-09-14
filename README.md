@@ -166,6 +166,7 @@ dev/
 | `bb test` | Run RCT tests on JVM |
 | `bb import-notes <dir>` | Import articles from Obsidian vault |
 | `bb copy-assets` | Copy media to public serving directory |
+| `bb js-deps` | Install JS dependencies, copy the mermaid bundle to `resources/public/lib` |
 | `bb build` | Compile optimized JS bundle |
 | `bb rss` | Generate RSS feeds |
 | `bb dist` | Full production build |

@@ -54,13 +54,9 @@
 ;; mermaid (CLJS only)
 ;;=============================================================================
 
-;; mermaid is a large, pure-ESM library that internally code-splits via dynamic
-;; import(); shadow-cljs cannot bundle it through its CJS interop ("Cannot redefine
-;; property: default"). We instead load the self-hosted, self-contained UMD build
-;; (resources/public/vendor/, copied into dist/ by `bb dist`) lazily via a <script>
-;; tag — only when a page actually has a diagram. The bundle assigns window.mermaid.
+;; Bundling mermaid adds 4.4MB to main.js, so a <script> tag fetches it instead.
 #?(:cljs
-   (def ^:private mermaid-url "/vendor/mermaid.min.js"))
+   (def ^:private mermaid-url "/lib/mermaid.min.js"))
 
 #?(:cljs
    (defonce ^:private mermaid-promise (atom nil)))

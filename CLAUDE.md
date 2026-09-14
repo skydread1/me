@@ -54,7 +54,7 @@ Filtering uses AND logic with a set of active tags (`:tag-filters #{}`). `toggle
 
 ### Content pipeline
 
-Blog posts live in `content/blog/` as markdown with YAML frontmatter. Media lives in `content/media/`. The `posts-data` macro in `md.clj` loads posts at compile time: parses frontmatter (clj-yaml), extracts TLDR, validates with Malli, and embeds in the JS bundle. Markdown is rendered at runtime in the browser (see `ui/core/markdown.cljc`) via marked + highlight.js, with `mermaid` code blocks rendered as diagrams. mermaid is self-hosted (`resources/public/vendor/mermaid.min.js`, copied to `dist/` by `bb dist`) and loaded lazily via a `<script>` tag only on pages that contain a diagram, since shadow-cljs cannot bundle its ESM. Diagrams follow the live light/dark theme via a `MutationObserver` on `data-theme`.
+Blog posts live in `content/blog/` as markdown with YAML frontmatter. Media lives in `content/media/`. The `posts-data` macro in `md.clj` loads posts at compile time: parses frontmatter (clj-yaml), extracts TLDR, validates with Malli, and embeds in the JS bundle. Markdown is rendered at runtime in the browser (see `ui/core/markdown.cljc`) via marked + highlight.js, with `mermaid` code blocks rendered as diagrams. mermaid is self-hosted and loaded lazily via a `<script>` tag only on pages that contain a diagram, because bundling it would add 4.4MB to `main.js` on every page. `bb js-deps` copies the mermaid bundle from `node_modules` into the gitignored `resources/public/lib/`. `bb dist` then copies that directory into `dist/`. `bb dev`, `bb watch` and `bb build` run `js-deps` first. Diagrams follow the live light/dark theme via a `MutationObserver` on `data-theme`.
 
 #### Importing from Obsidian
 
@@ -118,7 +118,8 @@ dev/
 | `bb test` | Run RCT tests on JVM |
 | `bb import-notes <dir>` | Import articles from vault to `content/` (also runs `copy-assets`) |
 | `bb copy-assets` | Copy `content/media` to public assets |
-| `bb build` | Release JS bundle (depends on copy-assets) |
+| `bb js-deps` | Install JS dependencies, copy the mermaid bundle to `resources/public/lib` |
+| `bb build` | Release JS bundle (runs copy-assets and js-deps) |
 | `bb rss` | Generate RSS feeds |
 | `bb dist` | Full build + gather static files for deploy |
 | `bb clean` | Remove build artifacts |

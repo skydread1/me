@@ -3,15 +3,25 @@
  {:requires [[clojure.edn :as edn]
              [clojure.string :as str]]
 
+  js-deps
+  {:doc "Install JS dependencies. Copy the mermaid bundle to resources/public/lib"
+   :requires ([babashka.fs :as fs])
+   :task (let [dest "resources/public/lib"]
+           (shell "npm install")
+           (fs/create-dirs dest)
+           (fs/copy "node_modules/mermaid/dist/mermaid.min.js" dest {:replace-existing true}))}
+
   dev
   {:doc "Start nREPL for development. Connect editor, then:
          (shadow.cljs.devtools.server/start!)
          (shadow.cljs.devtools.api/watch :app)
          (shadow.cljs.devtools.api/repl :app)"
+   :depends [js-deps]
    :task (clojure "-M:dev:cljs -m nrepl.cmdline --middleware \"[shadow.cljs.devtools.server.nrepl/middleware,cider.nrepl/cider-middleware]\"")}
 
   watch
   {:doc "Start shadow-cljs watch + dev server on port 3000 (standalone, no REPL)"
+   :depends [js-deps]
    :task (shell "npx shadow-cljs -A:dev:cljs watch app")}
 
   import-notes
@@ -53,13 +63,12 @@
 
   build
   {:doc "Build optimized JS bundle"
-   :depends [copy-assets]
-   :task (do (shell "npm install")
-             (clojure "-M:cljs -m shadow.cljs.devtools.cli release app"))}
+   :depends [copy-assets js-deps]
+   :task (clojure "-M:cljs -m shadow.cljs.devtools.cli release app")}
 
   clean
   {:doc "Clean build artifacts"
-   :task (shell "rm -rf target .shadow-cljs .cpcache resources/public/js resources/public/assets dist")}
+   :task (shell "rm -rf target .shadow-cljs .cpcache resources/public/js resources/public/assets resources/public/lib dist")}
 
   test
   {:doc "Run tests (RCT from source files)"
@@ -89,7 +98,7 @@
            (doseq [[src dest] [["resources/public/css" "/css"]
                                ["resources/public/js" "/js"]
                                ["resources/public/assets" "/assets"]
-                               ["resources/public/vendor" "/vendor"]
+                               ["resources/public/lib" "/lib"]
                                ["resources/public/blog/rss" "/blog/rss"]]]
              (when (fs/exists? src)
                (fs/copy-tree src (str dist-dir dest))))
