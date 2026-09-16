@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-09-17
+
 ### Added
 
 - Two articles: testing the MAGIC compiler against 33 real libraries, and running rich comment tests on the CLR.
