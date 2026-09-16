@@ -89,9 +89,9 @@ Compile it twice in a row and diff the disassembly of the generated class:
 
 Both DLLs hold the same two methods, but the order the class members are emitted in decides where each body lands in the file, so one swapped pair shifts every byte after it and the two files diff from that point on.
 
-What happens is that each method in a `reify` implements a method that already exists on an interface or base class, so the compiler pairs every body with the host method it implements, in a map keyed by that method's `MethodInfo` object. 
+What happens is that each method in a `reify` implements a method that already exists on an interface or base class, so the compiler pairs every body with the host method it implements, in a map keyed by that method's `MethodInfo` object.
 
-A `MethodInfo` has no value to hash by, so its hash code is just an arbitrary number the runtime assigns to that object **per process**; same method, new process, new number, so the map iterates in a different order in every process. Maps keyed by `Type` or `Var` objects have the same problem, and this was not one bug but a pattern: five places in the emitter iterated collections that way. Each now sorts its entries by a key built from the content itself. For a method it hashes the full signature string, so every process emits in the same order. The doc linked above lists all five.
+A `MethodInfo` has no value to hash by, so its hash code is just an arbitrary number the runtime assigns to that object **per process**; same method, new process, new number, so the map iterates in a different order in every process. Maps keyed by `Type` or `Var` objects have the same problem, and this was not one bug but a pattern: five separate sites in the emitter iterated collections that way. Each now sorts its entries by a key built from the content itself. For a method it hashes the full signature string, so every process emits in the same order. The doc linked above lists all five sites.
 
 ### String sort order
 
@@ -105,7 +105,7 @@ Every `def` bakes its source's `:file` path into metadata, and it used to be the
 
 ### Generated names
 
-Every anonymous fn compiles to a generated type, and those types are numbered by process-global counters, gensym included. Everything `nos` does before compiling your file consumes them: booting compiles nostrand's own Clojure in memory, resolving dependencies runs more. So any edit to that prelude shifted every number that every later file baked. 
+Every anonymous fn compiles to a generated type, and those types are numbered by process-global counters, gensym included. Everything `nos` does before compiling your file consumes them: booting compiles nostrand's own Clojure in memory, resolving dependencies runs more. So any edit to that prelude shifted every number that every later file baked.
 
 For example, one edit to `nostrand/core.clj` renumbered every committed stdlib DLL, the only difference in each being `__49` becoming `__50`. The counters now reset at each file-writing compile. So an emitted name is a function of the namespace and the toolchain alone; REPL evals keep the process-global counter and its uniqueness guarantee. The diagram below shows both regimes:
 
@@ -141,9 +141,9 @@ Each sub-file compiles as its own unit, so both reset to the same value, both mi
 
 ### Assembly ID and timestamp
 
-Two values in the emitted file say nothing about the code: 
+Two values in the emitted file say nothing about the code:
 - the build timestamp
-- MVID, a GUID identifying the module that gets randomized on every run. 
+- MVID, a GUID identifying the module that gets randomized on every run.
 
 `Reflection.Emit` offers no option to control either, where the C# compiler has `-deterministic`, so the only way is to patch the bytes ourselves once the assembly is saved. The timestamp is easy, a fixed offset in the [PE header](https://learn.microsoft.com/en-us/windows/win32/debug/pe-format), the container format .NET assemblies use. The MVID is not in that header at all: it sits in the metadata `#GUID` heap, so reaching it means walking the section table and the stream headers by hand.
 

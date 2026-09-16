@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Two articles: testing the MAGIC compiler against 33 real libraries, and running rich comment tests on the CLR.
+
+### Changed
+
+- Refreshed the Making Magic Stable and Drift Checks articles.
+
 ## [0.6.2] - 2026-08-24
 
 ### Changed

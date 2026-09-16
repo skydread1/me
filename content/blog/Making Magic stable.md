@@ -2,10 +2,12 @@
 tags:
   - clojure
   - dotnet
+  - clr
   - unity
+  - compiler
   - devops
   - magic
-date: 2026-08-24
+date: 2026-09-09
 repos:
   - [magic, "https://github.com/flybot-sg/magic"]
   - [magic-conformance, "https://github.com/flybot-sg/magic-conformance"]
@@ -23,21 +25,35 @@ MAGIC (Morgan And Grand Iron Clojure) compiles Clojure to .NET so we can run it 
 ## Rationale
 
 MAGIC (Morgan And Grand Iron Clojure) compiles Clojure to .NET so we can run it in Unity, including on iOS. When its creator [Ramsey Nasser](https://nas.sr/about/) no longer had time to maintain it, I consolidated his six repositories into one monorepo under our [Flybot](https://github.com/flybot-sg) org. I then improved the tooling around the compiler, which helped me fix bugs faster, and improved the integration in Unity, which was the whole point of the compiler in the first place. This article is about the decisions behind all that, not how the compiler works. The [docs](https://github.com/flybot-sg/magic/tree/main/docs) cover the how.
+
 ## ClojureCLR vs MAGIC
 
 The first question is always why not just use [ClojureCLR](https://github.com/clojure/clojure-clr), [David Miller](https://github.com/dmiller)'s mature Clojure-to-.NET port, which runs well on desktop. Its dynamic dispatch goes through the [DLR](https://learn.microsoft.com/en-us/dotnet/framework/reflection-and-codedom/dynamic-language-runtime-overview) (Dynamic Language Runtime), which builds each call site by emitting IL at runtime through `System.Reflection.Emit`. IL is the bytecode the .NET runtime executes, so this is a form of JIT (Just-In-Time) compilation: new executable code is produced while the program runs.
 
-The problem is that Unity's IL2CPP backend compiles everything to C++ **ahead of time**, so there is no runtime left to execute IL that was generated on the fly. iOS forces IL2CPP, because Apple forbids any third-party JIT, and Android forces it too, not through a JIT ban but because Google mandates 64-bit and Unity's Mono has no ARM64 build. Consoles have the same constraints. So ClojureCLR is just not an option if you want to build your Unity app for anything other than desktop, which is pretty much everybody really. That constraint is what pushed Ramsey to create his own compiler that writes all IL at build time, so the IL2CPP transpiler has everything it needs to generate its C++.
+Unity's IL2CPP backend compiles everything to C++ **ahead of time**, so there is no runtime left to execute IL that was generated on the fly. And outside the desktop, IL2CPP is the only backend:
+
+| Platform         | Backend            | Why                                                                     |
+| ---------------- | ------------------ | ----------------------------------------------------------------------- |
+| Desktop (PC/Mac) | Mono JIT or IL2CPP | no restriction, Mono for fast iteration                                 |
+| Android          | IL2CPP             | Google Play requires 64-bit, and Unity's Mono has no ARM64 build         |
+| iOS              | IL2CPP             | Apple forbids runtime JIT                                               |
+| Consoles         | IL2CPP             | the console OS forbids runtime JIT, and Unity offers no other backend    |
+
+So ClojureCLR is out for anything but a desktop build, which rules out pretty much everybody. That constraint is what pushed Ramsey to write his own compiler, one that emits all its IL at build time so the IL2CPP transpiler has everything it needs to generate its C++.
+
 ## How we use it at Flybot
 
-At [Flybot](https://flybot.sg) we helped port a client's old Java game libraries to Clojure. Then, because we knew MAGIC already existed, we took on the harder task of making those Clojure libraries run as .NET DLLs inside Unity. The payoff is that the same game APIs run in both the server backend and the Unity frontend, written once. I worked closely with [Ramsey](https://github.com/nasser) across two stretches, first on performance and then on stability (the [earlier story](https://www.loicb.dev/blog/magic-compiler-and-nostrand-integration)), until those games shipped in production. I was doing the bug reporting, he was fixing the compiler.
+At [Flybot](https://flybot.sg) we helped port the old Java game libraries of [Golden Island](https://www.80166.com/), an 18-game mobile gaming platform, to Clojure and improve composing game features. Then, because we knew MAGIC already existed, we took on the harder task of making those Clojure libraries run as .NET DLLs inside Unity. The payoff is that the same game APIs run in both the **JVM** server backend and the **CLR** Unity frontend. Naturally, I contacted [Ramsey](https://github.com/nasser) and we worked closely across two stretches, first on performance and then on stability (see [MAGIC Compiler and Nostrand Integration](https://www.loicb.dev/blog/magic-compiler-and-nostrand-integration)), until those games shipped in production. I was doing the bug reporting, he was fixing the compiler.
 
-The compiler worked fine for the most part, but the toolchain around it was painful. Six repositories, each with its own version and no shared release. Ramsey's time for it had become limited, so bugs could sit a while. And the internals were undocumented, with no public dev workflow, so contributing meant first reverse-engineering how the pieces fit. Our gaming platform frontend team actually came up with quite a few workarounds over the years. By the time I took over the compiler, their repos still carried patches just to get MAGIC to compile and integrate with Unity, both in the Clojure libs (ported to the CLR) and on the Unity side. I wanted to get rid of these patches by improving MAGIC directly, so everybody could benefit from it in the future.
+The compiler worked fine for the most part, but the toolchain around it was painful. Six repositories, each with its own version and no shared release. Ramsey's time for it had become limited, so bugs could sit a while. And the internals were undocumented, with no public dev workflow, so contributing meant first reverse-engineering how the compiler and its tooling work. Golden Island's frontend team actually came up with quite a few workarounds over the years. By the time I took over the compiler, their repos still carried patches just to get MAGIC to compile and integrate with Unity, both in the Clojure libs (ported to the CLR) and on the Unity side. So I set two goals: make MAGIC stable enough that I could delete the workarounds in their ported Clojure libraries, and improve the Unity integration so they could delete the ones in their Unity frontend.
 
 ## 1. Gather the six repos into one
+
 The first step was to gather everything in one place so I could add proper project tasks, proper CI, and therefore a more convenient dev workflow.
 
-A **monorepo** was the obvious choice here because these six repos always worked as one system. One version instead of six, one place to file bugs, and the freedom to land a compiler change, the runtime tweak it needs, and a stdlib fix in a single PR, instead of coordinating three separate repos. The diagram below shows the merge:
+A **monorepo** was the obvious choice here because these six repos always worked as one system. One version instead of six, one place to file bugs, and the freedom to land a compiler change, the runtime tweak it needs, and a stdlib fix in a single PR.
+
+The diagram below shows the merge:
 
 ```mermaid
 flowchart LR
@@ -52,7 +68,8 @@ flowchart LR
 
 I used [git-filter-repo](https://github.com/newren/git-filter-repo) to merge the six trees while keeping every author and commit date, going all the way back to 2009 since the runtime carries David Miller's history from its ClojureCLR fork. So the history itself credits the extensive work of Ramsey, of David Miller, and of everyone who contributed.
 
-It also lets anyone trace a bug back to the commit that introduced it. A human or an LLM can bisect far faster when the entire history of every piece sits in one place.
+It also lets anyone trace a bug back to the commit that introduced it. A human or an LLM can bisect far faster when the entire git history sits in one place.
+
 ## 2. Build tooling instead of becoming a compiler expert
 
 I am not a compiler expert but I still had a plan. The best move was to make the compiler understandable by anyone. Everything runs as a [Babashka](https://babashka.org/) (`bb`) task. I really like Babashka and it works very well for monorepos (see [Clojure Monorepo with Babashka](https://www.loicb.dev/blog/clojure-monorepo-with-babashka)).
@@ -63,7 +80,7 @@ In order to understand a bit more what is going on when I compile something, I c
 
 Between them, that is usually enough to see where something goes wrong without reading the compiler internals.
 
-For example, for `(+ 1 2)`, `bb pipeline` shows how it compiles, walking the form through macroexpansion, the AST and the type stages down to the symbolic IL the emitter produces:
+For example, for `(+ 1 2)`, `bb pipeline` prints this:
 
 ```bash
 $ bb pipeline '(+ 1 2)'
@@ -81,7 +98,7 @@ MACROEXPAND
 AST (skeleton)
 ================================================================
 {:args ...
- :method #object[RuntimeMethodInfo 0x6ab6fcd0 "Int64 add(Int64, Int64)"],
+ :method #object[System.Reflection.RuntimeMethodInfo 0x6ab6fcd0 "Int64 add(Int64, Int64)"],
  :original ...
  :type System.Int64,
  :op :intrinsic,
@@ -115,52 +132,31 @@ $ bb prepl-eval '(+ 1 2)'
 {:tag :ret, :val "3", :ns "user", :ms 2.1492, :form "(+ 1 2)"}
 ```
 
-With these two tasks, we can see both what the compiler emits, as pure data, and what it actually does, which is most of what I need to localise a bug. It also pays off with LLMs: given these two tasks, Claude Code finds the origin of a bug way faster than by digging through the compiler code. It is truly impressive.
+With these two tasks, we can see both what the compiler emits, as pure data, and what it actually does, which is most of what I need to localise a bug. It also pays off with LLMs: given these two tasks, Claude Code finds the origin of a bug way faster than by digging through the compiler code.
 
-There are quite a few other tasks, used in CI among other places; you can find more about them in [docs/development](https://github.com/flybot-sg/magic/blob/main/docs/development.md).
+There are quite a few other tasks, used in CI mainly, and you can find more about them in [docs/development](https://github.com/flybot-sg/magic/blob/main/docs/development.md).
 
 ## 3. Drift check the bootstrapping
 
-MAGIC is [bootstrapped](https://en.wikipedia.org/wiki/Bootstrapping_%28compilers%29), which means it uses a previous version of itself to compile its next version (see [docs/bootstrap](https://github.com/flybot-sg/magic/blob/main/docs/bootstrap.md)).
-MAGIC commits the emitted DLLs alongside the Clojure source code and the C# runtime, so it can build the next version from these assemblies. Committing a bug fix therefore requires two things:
-- the Clojure or C# source change
-- the new DLLs that contain the fix
+MAGIC is **bootstrapped**, which means it uses a previous version of itself to compile the next one (see [docs/bootstrap](https://github.com/flybot-sg/magic/blob/main/docs/bootstrap.md)). The emitted DLLs are committed next to the Clojure source and the C# runtime, so a bug fix is two things: the source change, and the regenerated DLLs that carry it. Forget the second one and the two no longer match, with nothing erroring at the time. That is **drift**, and `bb check-drift` is the task that detects it.
 
-So I have a `bb check-drift` task that checks that nothing is stale (including that the DLLs were regenerated, among other things). I just needed to be sure the new DLLs were committed alongside the source change.
-
-However, I could not easily know which DLLs were really affected by a source change, since they all came out different on every rebuild: the compilation was not deterministic. So I worked on making it deterministic (see the repo doc [Deterministic compilation and the drift check](https://github.com/flybot-sg/magic/blob/main/docs/deterministic-compilation.md)). This allowed me to byte-diff the DLLs! This is really valuable, because it means I can see exactly which DLLs are impacted by any source change.
-
-More details on how I made the compiler deterministic and its caveats in the article: [Drift Checks for a Self-Hosting Compiler](https://www.loicb.dev/blog/drift-checks-for-a-self-hosting-compiler).
+Making the compilation deterministic is what turned that check into a plain byte diff, so I can see exactly which DLLs a source change touches. How I got there, and what it costs, is in [Drift Checks for a Self-Hosting Compiler](https://www.loicb.dev/blog/drift-checks-for-a-self-hosting-compiler).
 
 ## 4. Catching IL2CPP bugs
 
-Ramsey had told me that the IL2CPP documentation is sometimes incomplete and even wrong, so a lot of the behavior has to be inferred by testing and disassembling what it produces. The consequence: some code runs totally fine on Mono and fails only when we build with IL2CPP.
+Ramsey had told me that the IL2CPP documentation is sometimes incomplete and even wrong, so a lot of the behaviour has to be inferred by testing and disassembling what it produces. As a consequence, some code runs totally fine on Mono and fails only when we build with IL2CPP.
 
-Rather than keep rediscovering those failures inside our large game projects, I built a [standalone Unity project](https://github.com/flybot-sg/magic/tree/main/unity-examples/magic-unity-smoke) that collects a minimal repro of every IL2CPP edge case we have hit so far: nine suites, 90 checks, all green on Mono and on a Standalone Mac IL2CPP build. Every time a fix is suspected to behave differently under IL2CPP, its repro lands in the suite in the same commit.
+Rather than keep rediscovering those failures inside our large game projects, I built a [standalone Unity project](https://github.com/flybot-sg/magic/tree/main/unity-examples/magic-unity-smoke) that collects a minimal repro of every IL2CPP edge case we have hit so far: eleven suites, 107 checks, all green on Mono and on a Standalone Mac IL2CPP build. Every time a fix is suspected to behave differently under IL2CPP, its repro lands in the suite. The suite is the one piece that does not run in CI, because an IL2CPP build needs a machine with Unity installed, so I run it by hand after any suspect fix.
 
-Example of divergence: overriding `ToString` on an anonymous object like so:
+## Foundation first, then the backlog
 
-```clojure
-(.ToString
- (reify System.Object
-   (ToString [_] "from reify")))
-;; Mono: "from reify"
-;; IL2CPP: the build itself dies
-```
-
-MAGIC emitted the reify class with `System.Object` listed both as its base type and in its interface list, which is invalid metadata, since `Object` is a class, not an interface. Mono loads the class without a word and runs it correctly. UnityLinker, the code stripper Unity runs during every IL2CPP build, walks that interface list to mark methods, meets the class's own base type there, and recurses until it overflows its stack. The build dies before producing a player, so no test that runs on Mono can ever see this bug: only an actual IL2CPP build surfaces it.
-
-The suite is the one piece that does not run in CI, because the IL2CPP build needs a machine with Unity installed. So I run it by hand after any suspect fix.
-
-## 5. Foundation first, then the backlog
-
-Only with the monorepo, tooling, CI, and smoke suite in place did I start on the bugs that had been open on Ramsey's repos for years. Each commit references the issue it closes, including the original `nasser/*` numbers, and the conventions in `CONTRIBUTING.md` mean a human or an LLM can file and fix without re-asking how we work.
+Only with the monorepo, tooling, CI, and IL2CPP smoke test suite in place did I start on the bugs that had been open on Ramsey's repos for years. A fix commit references the issue it closes, including the original `nasser/*` numbers. Plus, the conventions in `CONTRIBUTING.md` mean a human or an LLM can file and fix without re-asking how we work.
 
 The releases came fast once the base held:
 
 ```mermaid
 timeline
-    title MAGIC release arc (May to August 2026)
+    title MAGIC release arc (May to September 2026)
     v0.1.0 May 22 : Monorepo, bb tooling, CI, IL2CPP smoke
     v0.2.0 May 23 : Compiler and stdlib bug fixes
     v0.3.0 Jun 01 : Clojure 1.10 stdlib, magic.flags
@@ -173,106 +169,123 @@ timeline
     v0.10.0 Jul 14 : Deterministic compilation, byte-diff drift
     v0.11.0 Jul 24 : Constant and integer-promotion fixes, per-test skip
     v0.12.0 Aug 18 : One Unity package, editor runtime by define
+    v0.12.1 Aug 20 : ClojureCLR fork 1.11.0-flybot3, submodule deps-clr.edn
+    v0.13.0 Sep 09 : C# assemblies in the build output, editor reload on save, checked arithmetic
 ```
 
-Versioning is one `version.edn`, and `bb tag` creates the tag that a CI job turns into a published release tarball on GitHub. One command, and a release builds and ships itself with nothing done by hand. That predictable, hands-off release path is what the single shared repo finally makes possible. Per-release detail is in the [CHANGELOG](https://github.com/flybot-sg/magic/blob/main/CHANGELOG.md).
+Versioning is one `version.edn`, and `bb tag` creates the tag that a CI job turns into a published release tarball on GitHub. One command, and a release builds and ships itself with nothing done by hand. Per-release detail is in the [CHANGELOG](https://github.com/flybot-sg/magic/blob/main/CHANGELOG.md).
 
-I was happy to see that for the first time, I was able to use David Miller's [clr.test.check](https://github.com/clojure/clr.test.check) as is with MAGIC! Before, I had to comment out its `clojure.core` require and rewrite every `core/let` to its fully qualified form, just to dodge a MAGIC bug. After the v0.2.0 fixes, his port compiled under MAGIC with zero source patches, sooner than I expected. Then, testing against our own libraries, I found that some workarounds were still necessary, because MAGIC had never been fully ported to Clojure 1.10. So v0.3.0 filled that gap and put every compiler option behind one `magic.flags` namespace.
+I was happy to see that for the first time, I was able to use David Miller's [clr.test.check](https://github.com/clojure/clr.test.check) as is with MAGIC! Before, I had to comment out its `clojure.core` require and rewrite every `core/let` to its fully qualified form, just to dodge a MAGIC bug. After the v0.2.0 fixes, his port compiled under MAGIC with zero source patches, sooner than I expected.
 
-So latent bugs were fixed and Clojure 1.10 fully ported: good progress. And yes, Claude Code clearly helped me find bug sources and suggest fixes, using the bb tasks I made it write when I took over the repo.
+> Edit as of September 2026: I was too confident there: at that point a compile could fail silently. `compile-file` treated any reader exception as end of input, so `bb build` exited 0, printed `0 Error(s)`, and wrote a truncated DLL. That was fixed in v0.12.0 ([#104](https://github.com/flybot-sg/magic/issues/104)), so "it compiles" proved less than I read into it back then.
 
-## 6. Managing dependencies
+Then, testing against our own libraries, I found that some workarounds were still necessary, because MAGIC had never been fully ported to Clojure 1.10. So v0.3.0 filled that gap and put every compiler option behind one `magic.flags` namespace.
 
-MAGIC is one of these old projects that predate `deps.edn`! So Ramsey made his own resolver that reads a `project.edn`. [Nostrand](https://github.com/flybot-sg/magic/tree/main/nostrand) is the runtime environment that loads MAGIC and executes tasks (via `nos`), including the deps resolver. Since MAGIC was more stable and on par with Clojure 1.10, it was the right time to modernise its dependency handling: get rid of the dedicated `project.edn` deps files and support `deps.edn`.
+So latent bugs were fixed and Clojure 1.10 fully ported: good progress.
 
-The obvious first task was to adopt David Miller's CLR port of `tools.deps` ([clr.tools.deps](https://github.com/clojure/clr.tools.deps)), but it did not load as-is on MAGIC's Clojure 1.10 base: `.cljr` files were not recognized yet, and it calls a few stdlib functions newer than 1.10. Adopting it meant maintaining a compat fork and re-applying the patches on every upstream sync, which was not worth it.
+## 5. Managing dependencies
 
-Our need was narrow anyway: resolve git and local coordinates transitively, skip Maven, and authenticate through the developer's own git and SSH config. So I wrote my own resolver first, then aligned it with the ClojureCLR conventions.
+MAGIC is one of these old projects that predate `deps.edn`! So Ramsey made his own resolver that reads a `project.edn`. [Nostrand](https://github.com/flybot-sg/magic/tree/main/nostrand) is the runtime environment that loads MAGIC and executes tasks (via `nos`), including the deps resolver. Since MAGIC was now more stable and on par with Clojure 1.10, it was the right time to modernise its dependency handling: get rid of the dedicated `project.edn` deps files and support `deps.edn`.
 
-### A native `deps.edn` resolver (v0.4.0, v0.5.0)
+The obvious first task was to adopt David Miller's CLR port of `tools.deps` ([clr.tools.deps](https://github.com/clojure/clr.tools.deps)), but it did not load as-is on MAGIC's Clojure 1.10 base: `.cljr` files were not recognized yet, and it calls a few stdlib functions newer than 1.10. Adopting it meant maintaining a fork and re-applying the patches on every upstream sync, which was not worth it.
 
-I added native `deps.edn` resolution, one file for both JVM and CLR runtimes, with a `:clr` alias that swaps a JVM library for its CLR fork via `:override-deps`. It worked well, and I found it quite clean to have a dedicated alias carry the JVM-only / CLR-only mapping. However, that was not how the existing ClojureCLR community did it. David Miller's convention is a dedicated `deps-clr.edn` file that is read in place of `deps.edn`. It is a bit more verbose, but it is convenient for loading different paths per platform, notably a precompiled-assembly loader namespace that the CLR must load and the JVM must ignore.
+Our need was narrow anyway: resolve git and local coordinates transitively, skip Maven (as `cljr` does), and authenticate through the developer's own git and SSH config. So I wrote my own resolver first, then aligned it with the ClojureCLR conventions. The full porting guide is in [docs/porting-libraries-to-magic.md](https://github.com/flybot-sg/magic/blob/main/docs/porting-libraries-to-magic.md).
 
-### `deps-clr.edn`, the file the CLR community already writes (v0.9.0)
+### From `deps.edn` to `deps-clr.edn` (v0.4.0 to v0.9.0)
 
-David Miller's [`cljr`](https://github.com/clojure/clr.core.cli), the ClojureCLR CLI, reads a [`deps-clr.edn`](https://github.com/flybot-sg/magic/blob/main/docs/clr-dependency-files.md) in place of `deps.edn` when it is present, and that is where the CLR community already writes its CLR-specific dependencies. So I made `nos` prefer it the same way. Now both the `cljr` and `nos` CLIs resolve `deps-clr.edn`, so a library already ported to the CLR for ClojureCLR builds the same with `nos` (assuming no core functions above 1.10). This was a necessary milestone to unify the effort of porting libraries to the CLR. I recently ported [robertluo/fun-map](https://github.com/robertluo/fun-map) to the CLR: it carries a `deps-clr.edn` and its CI runs the tests with ClojureCLR, matching the existing convention. And `fun-map` also builds with MAGIC as is, which is really nice.
+I added native `deps.edn` resolution first, one file for both runtimes, with a `:clr` alias that swaps a JVM library for its CLR fork through `:override-deps`. It worked, and I liked having a single alias carry the whole JVM to CLR mapping. But it was not what the CLR community writes. David Miller's [`cljr`](https://github.com/clojure/clr.core.cli), the ClojureCLR CLI, reads a [`deps-clr.edn`](https://github.com/flybot-sg/magic/blob/main/docs/clr-dependency-files.md) in place of `deps.edn` when it is present. That is more verbose, but it carries different paths per platform, notably a precompiled-assembly loader namespace the CLR must load and the JVM must ignore. So in v0.9.0 I made `nos` follow the same convention.
+
+Both CLIs now resolve the same file, so a library already ported for ClojureCLR builds with `nos` as is, assuming it uses no core functions above 1.10. That was the milestone that unified the porting effort. [robertluo/fun-map](https://github.com/robertluo/fun-map) is the proof: I ported it to the CLR, it carries a `deps-clr.edn`, its CI runs the tests with ClojureCLR, and it builds under MAGIC with no changes.
 
 The CLR dependency flow is documented in [docs/clr-dependency-files](https://github.com/flybot-sg/magic/blob/main/docs/clr-dependency-files.md).
 
 ### `magic.edn`, build and test config (v0.9.0)
 
-However, for the test runner, I could not follow the ClojureCLR way. We could not use David Miller's CLR port of Cognitect's [test-runner](https://github.com/dmiller/test-runner) because its dependency chain bottoms out in `clr.tools.reader`, which reads record literals through runtime reflection (ClojureCLR's `Reflector` class), and MAGIC deliberately ships no runtime reflection since that is exactly what IL2CPP forbids.
+However, for the test runner, I could not follow the ClojureCLR way. We could not use David Miller's CLR port of Cognitect's [test-runner](https://github.com/dmiller/test-runner) because its dependency chain bottoms out in `clr.tools.reader`, which reads record literals through runtime reflection (ClojureCLR's `Reflector` class), and MAGIC's runtime does not ship `Reflector` at all.
 
 The other MAGIC-only file was the `dotnet.clj` build helper. So `nos build` and `nos test` became built-in tasks that read an optional `magic.edn`, a small map where a project states only what differs from the defaults. A library that needs no tweaks omits the file; the hand-written `dotnet.clj` is gone.
 
 So a lib still specifies the `io.github.dmiller/test-runner` port in its test deps to run tests with `cljr`, and adds a small `magic.edn` file at its root to run them with `nos`.
 
-The full guide is in [docs/porting-libraries-to-magic.md](https://github.com/flybot-sg/magic/blob/main/docs/porting-libraries-to-magic.md).
+### Shipping a library's C# assembly (v0.13.0)
 
-## 7. The right runtime per phase, in Unity
+Some of our Clojure namespaces wrap types that live in a C# assembly the library ships. The library compiled fine, but getting that assembly into the consumer's Unity project was the consumer's problem, so people wrote a `File/Copy` in their build script and kept it up to date by hand.
 
-With consumers able to build and depend on CLR libraries cleanly, the last piece left was the one we actually ship into. The right arrangement was not my idea: [Hong](https://github.com/hongheng), an engineer on our client's Unity team, had arrived at it out of necessity:
-Run **ClojureCLR in the editor**, where it compiles Clojure from source in memory so hot reload works, and run **MAGIC only in the player build**, where its static IL is what IL2CPP needs. I wanted this setup in a UPM package that ships both runtimes with the proper `defineConstraints` in their `.meta` files, to avoid conflicts in the Unity editor.
+`nos build` now copies those assemblies into the build output itself. A Unity project then points `:csharp-out` at a second folder, because the two kinds of file have opposite lifecycles:
 
-This took some time and was actually only available in version 0.12.0. My first draft was one package that ships MAGIC only, meant to be used in both the editor and the player build. The downside of course was that it was slow, because changing a Clojure source file required a full AOT compilation and reset the scene on every change.
+|                          | `Assets/Plugins/Magic/`             | `Assets/Plugins/CSharp/`                       |
+| ------------------------ | ----------------------------------- | ---------------------------------------------- |
+| Set by                   | `:out`                              | `:csharp-out`                                  |
+| Holds                    | your Clojure, compiled              | the C# assemblies your dependencies ship       |
+| Written by               | `nos build`, compiling your sources | `nos build`, copying files `csc` built long before |
+| Wiped before every build | yes, by `:clean?`                   | no                                             |
+| In git                   | no, gitignore it                    | yes, `.meta` files included                    |
 
-So then, since the Unity team was using a fork of ClojureCLR 1.11 in the editor, I generated a second package variant whose MAGIC DLLs carry a `!UNITY_EDITOR` constraint, so the editor never loads them and their ClojureCLR DLLs work as usual.
+The last row is the one that pays off. A teammate who only opens the editor gets the C# plugin without running any build, because ClojureCLR compiles the Clojure from source there and never loads the compiled DLLs anyway.
 
-This was not ideal of course, so a colleague of mine looked into packaging both runtimes while letting the Unity consumer project choose which one the editor loads. The solution was a single scripting define symbol, `MAGIC_RUNTIME_IN_EDITOR`, whose constraint applies to the MAGIC DLLs, the ClojureCLR DLLs, and, through a reconcile pass after each domain reload, to any ported Clojure libs present under `Assets/Plugins`.
+The details are in [docs/native-assemblies.md](https://github.com/flybot-sg/magic/blob/main/docs/native-assemblies.md).
 
-We actually had to fork ClojureCLR to fix a few bugs, for reasons I detail further down this article.
+## 6. The right runtime per phase, in Unity
+
+For legacy reasons, the magic-unity package used to allow compilation inside Unity, but it was buggy and got removed. Because there was no Unity compilation left, a Golden Island Unity engineer, [Hong](https://github.com/hongheng), got the idea to use ClojureCLR for the hot reloading feature in the Unity Editor while keeping MAGIC just for the player build stage. After I took over MAGIC and made the compiler stable, I managed to ship a package that allows the same workflow, after some trial and error. Now a colleague, [Parth](https://github.com/parth-io), is working on bringing MAGIC compilation back so we can remove ClojureCLR from the loop once and for all. Here is what happened:
+
+```mermaid
+timeline
+    title Two runtimes, one Unity project
+    Shape 1, compile inside Unity : Magic.Unity carried a compilation UI : its DLLs could mismatch the ones nos produced outside
+    Shape 2, a NuGet package per library : compile, pack, push, restore before any change reached the editor
+    Shape 3, one UPM package, then two : v0.6.0 excluded MAGIC at import time and Unity narrated every line : v0.7.0 baked it into a second package variant
+    Shape 4, one package, one define : v0.12.0 ships both runtimes and a symbol picks the editor one
+    Shape 5, MAGIC in both [WIP] : hot reload through MAGIC in the editor, and ClojureCLR goes
+```
+
+### Shape 1, compile inside Unity
+
+Ramsey's. [`magic-unity`](https://github.com/flybot-sg/magic/tree/main/magic-unity) carried its own build pipeline and it drifted from Nostrand's: the two versions could differ, the compile window never emitted DLLs for transitive namespaces, and `case` baked unstable `GetHashCode` values into its jump tables, so a Nostrand-built DLL mis-dispatched once Unity loaded it.
+
+### Shape 2, a NuGet package per library
+
+As MAGIC was not yet stable enough and could not compile all our Clojure backend libs, I asked Ramsey to strip `magic-unity` down to a runtime only. That meant one compiler and one set of DLLs, so we would have only one thing to focus on: the compiler itself.
+
+Hong came to the same conclusion: fix the compiler first, worry about the Unity integration later. So in November 2022, Ramsey removed the in-Unity compilation feature.
+
+Two different things were slow here, years apart, and they are easy to run together. MAGIC's compiled code was genuinely slow in 2021, badly enough that a Monte Carlo search took tens of seconds per move, and that is what the performance work of early 2022 fixed. What was slow afterwards was the loop: with no compiler left in the editor, seeing one edit meant a full `nos build` and a domain reload. The second one is what eventually pushed Hong to ClojureCLR.
+
+### Shape 3, one UPM package, then two
+
+Hong still needed a quick way to reload the Clojure lib code in the Unity editor, so in March 2023 he brought ClojureCLR into the editor, and in June 2023 he picked a scripting define to switch runtimes. I never looked at his implementation; I just knew he had a sort of dual compiler setup.
+
+Reproducing it as something we could ship took me two tries. v0.6.0 flipped MAGIC's DLLs out of the editor as Unity imported them, which worked but made Unity log an error line for each of the 46. v0.7.0 moved that exclusion into a second package variant, published next to the first.
+
+### Shape 4, one package, one define
+
+My colleague [Parth](https://github.com/parth-io) volunteered to take care of the single package shipping the dual compiler mode. A single scripting define symbol, `MAGIC_RUNTIME_IN_EDITOR`, decides which one the editor loads, based on Hong's work. The constraint applies to the MAGIC DLLs, the ClojureCLR DLLs, and, through a reconcile pass after each domain reload, to any ported Clojure libs under `Assets/Plugins`. I wanted to prove to Golden Island that MAGIC was now really stable and reliable in Unity, with a clean package that reproduces their workflow.
+
+### Shape 5, MAGIC in both
+
+Now that MAGIC is stable at version 0.13.0 and used in Golden Island's Unity platform, it is time to bring hot reload back and drop ClojureCLR once and for all. This is proven ground rather than research: MAGIC's in-memory compiler never went anywhere, and Hong reloaded against MAGIC in 2022, back when the package still compiled inside Unity. What is genuinely new is the reload layer, and it is already far better than the watcher it replaces.
 
 The consumer setup is documented in [docs/unity-integration.md](https://github.com/flybot-sg/magic/blob/main/docs/unity-integration.md).
 
-## 8. Test each version of MAGIC on 30+ repos
+### The fork that came with it
 
-My goal was to be able to compile with MAGIC all the libs our Unity gaming platform depends on, without custom forks carrying workarounds just to make them compile. I wanted to be able to use David Miller's CLR ports right away (as long as they use no features above Clojure 1.10), and to run rich comment tests (RCT) on the CLR, since most of our recent internal libraries use them for unit tests.
+Shipping ClojureCLR ourselves means we answer for its bugs too, and it has them. We found that out when Golden Island told us that removing the datafy workaround in a backend lib had broken the Unity editor. I had fixed a wrong method call in `clojure.datafy` in MAGIC and never noticed ClojureCLR carried the same bug. That kept happening. To make the dual compiler mode work in Unity we had to fix ClojureCLR too, so we forked 1.11 and fixed what diverged. That story is in [Magic Compiler tested Against 33 Real Libraries](https://www.loicb.dev/blog/magic-compiler-tested-against-33-real-libraries).
 
-### rct-clr: rich comment tests on the CLR
+### Reloading a saved source (v0.13.0)
 
-[rich-comment-tests](https://github.com/robertluo/rich-comment-tests) puts a function's example calls and their expected results in a `(comment ...)` block and runs them as assertions, keeping the documentation and the tests as one thing. The problem is that the library relies heavily on the JVM, so it is not easy to port with just interop. So my colleague [Parth](https://github.com/parth-io) had the idea to extract the assertions on the JVM and emit a plain `.cljc` file of ordinary `deftest`s, which `nostrand` can run. That became [rct-clr](https://github.com/flybot-sg/rct-clr): the `(comment ...)` blocks stay the single source of truth, and the CLR runs the very same assertions as the JVM, just in a generated file of `deftest`s instead of via the RCT runner.
+Saving a Clojure file should redefine your functions in the running editor, which is why Golden Island put ClojureCLR in Unity in the first place. Until v0.13.0 that job belonged to each project, as a hand-rolled `FileSystemWatcher` calling `load-string`: about 75 lines that fired two or three times per save, ran the reload off the main thread, and never matched `.cljc` at all, so a change often took several saves to land.
 
-### magic-conformance: does it still build under MAGIC?
+Parth replaced it with `Magic.Unity.ClojureReloader`, a debouncing watcher feeding a main-thread poll that retries a read it loses a race to. It ships in the package, so no project writes that code again, and it is the same machinery MAGIC will reload through once Shape 5 lands.
 
-While working on MAGIC, I want to be sure that all the libs our gaming platform depends on compile and test OK on the latest MAGIC release. So I wanted an easy way to rebuild and re-run the tests of each of our libs in these two scenarios:
-- the MAGIC version got bumped: I want to be sure there is no regression
-- a lib SHA moved: I want to be sure it still compiles with MAGIC
+## 7. Test each version of MAGIC on 33 repos
 
-[magic-conformance](https://github.com/flybot-sg/magic-conformance) is a runner that reads a manifest of libraries and, for each, clones it and runs its `nos build` and `nos test` on the [ci-clj-clr](https://github.com/flybot-sg/ci-clj-clr) image, which carries the JVM, MAGIC, and ClojureCLR toolchains. A manifest entry can also carry an inline `magic.edn` or `deps-clr.edn`, which the runner writes into the clone when the library ships none of its own.
+My goal was to compile with MAGIC every lib Golden Island's Unity gaming platform depends on, without custom forks carrying workarounds just to make them compile. I wanted to use already ported Clojure libs from the community right away (as long as they use no features above Clojure 1.10), and to run rich comment tests on the CLR, since most of our recent internal libraries use them for unit tests. That second one became its own tool, [rct-clr](https://www.loicb.dev/blog/rich-comment-tests-on-the-clr).
 
-```mermaid
-flowchart TD
-    L["manifest<br/>(the libraries)"] --> R["conformance run"]
-    R -->|per library| S{"commit + MAGIC version<br/>+ config unchanged?"}
-    S -->|yes| K["reuse cached result"]
-    S -->|no| A["clone, inject config"] --> B["nos build + nos test<br/>+ cljr -X:test when declared"]
-    B --> W[("results")]
-    K --> W
-```
+The first one became a runner, and it is open source. [magic-conformance](https://github.com/flybot-sg/magic-conformance) clones each library in a manifest, rebuilds it, and reruns its tests on both CLR compilers inside our [ci-clj-clr](https://github.com/flybot-sg/ci-clj-clr) image. Point it at your own manifest and it checks your own libraries. Ours is a private repo that pins the runner by SHA and lists the 33 libraries their platform depends on, all re-checked on every MAGIC release and every release of our ClojureCLR fork. The sweep has its own write-up: [Magic Compiler tested Against 33 Real Libraries](https://www.loicb.dev/blog/magic-compiler-tested-against-33-real-libraries).
 
-The public repo ships the runner with a small green example manifest, a few public libraries such as [fun-map](https://github.com/robertluo/fun-map) that build under MAGIC straight from upstream. Internally, we run magic-conformance on around 30 repos to be sure they compile with both MAGIC and our fork of ClojureCLR 1.11.
+## 8. Documentation
 
-It is not every open source library being recompiled, like Rust does with its [Crater](https://rustc-dev-guide.rust-lang.org/tests/crater.html), but that is a good start!
-
-### Our fork of clojure-clr
-To recap our setup, we actually need three compilers:
-- JVM Clojure on the server
-- `ClojureCLR` in the Unity **editor**
-- `MAGIC` in the Unity **player** build
-
-In one MAGIC release, I shipped a fix for a bug where datafied class names came out in their short form (`String`) where the JVM uses the fully qualified name (`System.String`). JVM and MAGIC tests were green, so a consumer lib deleted its own datafy workaround. Then a Unity dev reported that their editor broke: ClojureCLR has the same datafy bug, and ClojureCLR is what runs in the editor, so the editor hit the bug the workaround had been hiding, while player builds stayed green. That is when I realised that for this dual CLR compile workflow to work in Unity, I needed to guarantee similar behaviour from both compilers.
-
-So I forked ClojureCLR 1.11 (the version the client was using) into [flybot-sg/clojure-clr](https://github.com/flybot-sg/clojure-clr), and with my colleague we added a few things:
-
-- the post-1.11 backports the `cljr` CLI needs to run
-- later fixes David Miller shipped upstream, backported to 1.11
-- our own fixes (including the `datafy` fix mentioned above), found while running ClojureCLR next to MAGIC
-
-I also added ClojureCLR to our [ci-clj-clr](https://github.com/flybot-sg/ci-clj-clr) image, so clients can run their backend libs with `cljr` and my conformance check can run all our libs with `cljr` as well.
-
-## 9. Documentation
-
-I tried to have an LLM generate the docs for me, and it was bad. So I did almost all of it manually first, and let the LLM fix the usual typos and generate the Mermaid diagrams, because diagrams help me understand. So the doc is written for humans and understood by LLMs.
+I tried to have an LLM generate the docs for me, and it was bad. So I redid almost all of it manually first, and let the LLM fix the usual typos and generate the Mermaid diagrams, because diagrams help me understand. So the doc is written for humans and understood by LLMs.
 
 | Document | What it covers |
 |---|---|
@@ -280,8 +293,12 @@ I tried to have an LLM generate the docs for me, and it was bad. So I did almost
 | Component READMEs | what each piece is, with the Clojure version, runtimes, and Unity version it is tested against |
 | [CHANGELOG](https://github.com/flybot-sg/magic/blob/main/CHANGELOG.md) | one entry per release, every issue it closes (including the upstream `nasser/*` numbers) |
 
-Internally, I made a Claude Code plugin with skills to port a lib to the CLR with both MAGIC and ClojureCLR. I have not made it public yet, because I am aware of the skepticism of some in the Clojure community about LLMs, and I am still polishing it anyway. The skills mainly refer to the docs of the magic repo, so it should be easy for anybody to write their own. ClojureCLR is the reference compiler and the most up to date with upstream Clojure, so when I port an open source lib to the CLR, I use `cljr` and not `nos`. For people who want to run their Clojure lib in Unity, I advise using our [ci-clj-clr](https://github.com/flybot-sg/ci-clj-clr) image and running the tests on both compilers.
+Internally, I made a [Claude Code plugin](https://www.loicb.dev/blog/building-claude-code-plugins-for-the-team) with skills to port a lib to the CLR with both MAGIC and ClojureCLR. I have not made it public yet, because I am aware of the skepticism of some in the Clojure community about LLMs, and I am still polishing it anyway. The skills mainly refer to the docs of the magic repo, so it should be easy for anybody to write their own.
+
+ClojureCLR is the "reference" compiler and the most up to date with upstream Clojure, so when I port an open source lib to the CLR, I use `cljr` in the CI and not `nos`. For people who want to run their Clojure lib in Unity, I advise using our [ci-clj-clr](https://github.com/flybot-sg/ci-clj-clr) image and running the tests on both compilers.
 
 ## What is next
 
 The next real effort is dropping Mono for CoreCLR, which Unity is moving to and which Nostrand still predates. We also plan on porting Clojure 1.11.
+
+We are also putting hot reload back into MAGIC itself, the Shape 5 above. Early numbers show no real gap against ClojureCLR, and if it lands it takes ClojureCLR out of the editor, and our fork with it.
