@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.7.1] - 2026-09-17
+
+### Fixed
+
+- The Rich Comment Tests on the CLR article claimed neither RCT dependency runs on the CLR. It now says tools.namespace is ported, and that MAGIC alone cannot load it.
+
 ## [0.7.0] - 2026-09-17
 
 ### Added
