@@ -34,7 +34,7 @@ Our Clojure libraries run on two platforms, the JVM and the CLR, and CI runs the
   )
 ```
 
-The problem is how it gets there. RCT reads your source with [rewrite-clj](https://github.com/clj-commons/rewrite-clj) and walks your namespaces with [tools.namespace](https://github.com/clojure/tools.namespace), and neither runs on the CLR.
+The problem is how it gets there. RCT reads your source with [rewrite-clj](https://github.com/clj-commons/rewrite-clj) and walks your namespaces with [tools.namespace](https://github.com/clojure/tools.namespace). Nobody has ported rewrite-clj to the CLR. David Miller ported tools.namespace, and MAGIC still cannot load it.
 
 I use [Robert Luo's fork](https://github.com/robertluo/rich-comment-tests) rather than Downey's original. It adds a `throws=>>` operator for expected exceptions, swaps the argument order of `=>` to match the `(is (= expected actual))` reading, resolves namespaced keywords correctly, and makes the standalone runner exit 1 when a test fails.
 
@@ -42,12 +42,12 @@ The fork keeps the original `com.mjdowney` namespace, so the coordinate is the o
 
 ## Generate the tests, do not port the runner
 
-The naive route is to port RCT, which means porting the two libraries it stands on:
+The naive route is to port RCT, which means dealing with the two libraries it stands on. The cost does not sit where it looks.
 
-- **tools.namespace** finds the namespaces, and that step is JVM file IO: `clojure.java.io`, `java.io.File`, `file-seq`. The CLR spells every one of those differently.
-- **rewrite-clj** reads the source, and it targets Clojure and ClojureScript only: 112 `:clj` reader branches, 93 `:cljs`, not one `:cljr`, and just 63 conditionals with a `:default`. On the CLR the branches without one read as nothing at all, so the code disappears instead of failing.
+- **tools.namespace** finds the namespaces. David Miller ported it as `clr.tools.namespace`, and ClojureCLR runs it today. `cljr -X:test` drives a test runner that depends on it. MAGIC is the one that cannot load it, and the break sits one level lower. `clr.tools.reader` imports `clojure.lang.Reflector`, and MAGIC's runtime drops that class on purpose: resolving calls at run time is what IL2CPP forbids, and removing it is why MAGIC exists.
+- **rewrite-clj** reads the source, and nobody has ported it. It targets Clojure and ClojureScript only: 112 `:clj` reader branches, 93 `:cljs`, not one `:cljr`, and just 63 conditionals with a `:default`. On the CLR the branches without one read as nothing at all, so the code disappears instead of failing. `z/of-file` sits behind one of them, so the call RCT opens a source file with is not even defined there.
 
-All of that, to arrive at assertions `clojure.test` can already express.
+So the port is possible, and it costs a permanent fork of an 8000-line library that still ships releases. On MAGIC it costs that fork plus a second one, over a library Miller maintains. All of it to arrive at assertions `clojure.test` can already express.
 
 My colleague [Parth](https://github.com/parth-io) called it: the CLR never needs RCT at all. Extract on the JVM, emit a plain test file, let the CLR run that. He wrote the first version, and it became [rct-clr](https://github.com/flybot-sg/rct-clr).
 
@@ -87,7 +87,7 @@ Three platform details come with that.
 
 - **Reader conditionals** work as usual, and the generator extracts only the `:cljr` branch. So `(platform) ;=> #?(:clj :jvm :cljr :clr)` compares against `:jvm` on the JVM and `:clr` on the CLR.
 - **A `throws=>>` block** emits `catch System.Exception`. A generated helper hands you `:error/class`, `:error/message` and `:error/data` to match on.
-- **A `#?` in the test expression itself** breaks the JVM runner, which cannot read it. Take `#?(:clj (.getMessage e) :cljr (.Message e))`: it resolves for the generator and fails on the JVM. Do not write that one. Put the interop inside the function, behind its own reader conditional, and call the function from the block.
+- **A `#?` in the test expression itself** breaks the JVM runner. rewrite-clj turns it into `(read-string "#?(...)")`, and evaluating that throws `Conditional read not allowed`. Take `#?(:clj (.getMessage e) :cljr (.Message e))`: it resolves for the generator and fails on the JVM. Do not write that one. Put the interop inside the function, behind its own reader conditional, and call the function from the block.
 
 ## Settling what `;=>` means
 
@@ -150,7 +150,7 @@ A `;=>>` expectation is a matcho pattern rather than an equality check, so the g
 
 On the JVM this never comes up, because RCT declares matcho itself. On the CLR there is no RCT, by design, so nothing pulls it in and you declare it yourself.
 
-Upstream matcho is JVM-only. Its `matcho/core.clj` reaches straight for `java.util.regex.Pattern`, with no reader conditional and no `.cljc` in sight, so it cannot even be read on the CLR.
+Upstream matcho is JVM-only. Its `matcho/core.clj` reaches straight for `java.util.regex.Pattern`, with no reader conditional and no `.cljc` in sight. The CLR reads the file, then fails to resolve the type.
 
 So I ported it. The fork renames `core.clj` to `matcho/core.cljc`, puts the platform types behind a reader conditional, and adds the `deps-clr.edn` that `cljr` needs to resolve it:
 
